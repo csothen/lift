@@ -1,0 +1,28 @@
+usecases:
+  - name: "c-applications"
+    services:
+        - type: sonarqube
+          version: 8.9.8
+          plugins:
+            - name: c
+              version: 5.0
+            - name: flex
+              version: 5.1
+          # database:
+          #   username: user
+          #   password: password
+          #   url: jdbc:postgresql://{DB_URL}:5432/sonarqube
+  - name: "go-applications"
+    services:
+      - type: sonarqube
+        version: 8.9.8
+        plugins:
+          - name: go
+            version: 1.6
+          - name: cpp
+            version: 5.0
+        database:
+          database:
+            username: user
+            password: passwordsonarqube
+            url: jdbc:postgresql://{DB_URL}:5432/sonarqube

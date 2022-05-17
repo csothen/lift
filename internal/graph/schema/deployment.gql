@@ -1,0 +1,38 @@
+type Deployment {
+  canonical: String!
+  state: String!
+  type: String!
+  url: String!
+  userCredential: Credential!
+  callbackURL: String!
+}
+
+type Credential {
+  username: String!
+  password: String!
+  accessToken: String!
+}
+
+input NewDeployments {
+  deployments: [NewDeployment!]!
+  callbackURL: String!
+}
+
+input NewDeployment {
+  usecase: String!
+  services: [NewService!]!
+}
+
+input NewService {
+  service: String!
+  count: Int
+}
+
+extend type Query {
+  deployments: [Deployment!]!
+  findDeployment(canonical: String!): Deployment!
+}
+
+extend type Mutation {
+  createDeployments(input: NewDeployments!): [Deployment!]!
+}

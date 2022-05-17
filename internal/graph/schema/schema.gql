@@ -1,0 +1,9 @@
+enum ServiceType {
+  Sonarqube
+}
+
+enum DeploymentState {
+  Running
+  Pending
+  Stopped
+}

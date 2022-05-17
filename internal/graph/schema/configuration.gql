@@ -1,0 +1,47 @@
+type Configuration {
+  usecases: [UseCaseConfiguration!]!
+}
+
+type UseCaseConfiguration {
+  name: String!
+  services: [ServiceConfiguration!]!
+}
+
+type ServiceConfiguration {
+  type: ServiceType!
+  version: String!
+  plugins: [PluginConfiguration!]!
+}
+
+type PluginConfiguration {
+  name: String!
+  version: String!
+}
+
+input NewUseCaseConfiguration {
+  name: String!
+  services: [NewServiceConfiguration!]!
+}
+
+input NewServiceConfiguration {
+  usecase: String!
+  type: ServiceType!
+  version: String!
+  plugins: [NewPluginConfiguration!]!
+}
+
+input NewPluginConfiguration {
+  name: String!
+  version: String!
+}
+
+extend type Query {
+  configuration: Configuration!
+  findUseCaseConfiguration(name: String!): UseCaseConfiguration!
+  findServiceConfiguration(uc: String!, service: String!): ServiceConfiguration!
+}
+
+extend type Mutation {
+  addUseCaseConfiguration(input: NewUseCaseConfiguration!): Configuration!
+  addServiceConfiguration(input: NewServiceConfiguration!): Configuration!
+}
