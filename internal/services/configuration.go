@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/csothen/tmdei-project/internal/db"
 	"github.com/csothen/tmdei-project/internal/models"
 	"github.com/csothen/tmdei-project/internal/models/dtos"
 )
@@ -49,8 +48,7 @@ func (s *Service) ReadConfigurationService(ctx context.Context, usecase, service
 
 // AddConfigurationUseCase adds a new usecase to the configuration
 func (s *Service) AddConfigurationUseCase(ctx context.Context, ucconfig *dtos.NewUseCaseConfiguration) (*models.Configuration, error) {
-	// TODO: Send an actual payload to the DB
-	_, err := s.repo.CreateUseCaseConfiguration(ctx, db.CreateUseCaseConfigurationParams{})
+	_, err := s.repo.CreateUseCaseConfiguration(ctx, *ucconfig.ToDB())
 	if err != nil {
 		return nil, fmt.Errorf("failed to add the use case %s to the configuration: %w", ucconfig.Name, err)
 	}
@@ -67,8 +65,7 @@ func (s *Service) AddConfigurationUseCase(ctx context.Context, ucconfig *dtos.Ne
 
 // AddConfigurationService adds a new service to a specific usecase in the configuration
 func (s *Service) AddConfigurationService(ctx context.Context, usecase string, sconfig *dtos.NewServiceConfiguration) (*models.Configuration, error) {
-	// TODO: Send an actual payload to the DB
-	_, err := s.repo.CreateServiceConfiguration(ctx, db.CreateServiceConfigurationParams{})
+	_, err := s.repo.CreateServiceConfiguration(ctx, *sconfig.ToDB(usecase))
 	if err != nil {
 		return nil, fmt.Errorf("failed to add the service %s to the usecase %s in the configuration: %w", sconfig.Type, usecase, err)
 	}
@@ -85,8 +82,7 @@ func (s *Service) AddConfigurationService(ctx context.Context, usecase string, s
 
 // UpdateConfigurationUseCase updates a specific usecase in the configuration
 func (s *Service) UpdateConfigurationUsecase(ctx context.Context, usecase string, ucconfig *models.UseCaseConfiguration) error {
-	// TODO: Send an actual payload to the DB
-	err := s.repo.UpdateUseCaseConfiguration(ctx, db.UpdateUseCaseConfigurationParams{})
+	err := s.repo.UpdateUseCaseConfiguration(ctx, *ucconfig.ToDB())
 	if err != nil {
 		return fmt.Errorf("failed to update the usecase %s in the configuration: %w", usecase, err)
 	}
@@ -95,8 +91,7 @@ func (s *Service) UpdateConfigurationUsecase(ctx context.Context, usecase string
 
 // UpdateConfigurationService updates a service of a specific usecase in the configuration
 func (s *Service) UpdateConfigurationService(ctx context.Context, usecase, service string, sconfig *models.ServiceConfiguration) error {
-	// TODO: Send an actual payload to the DB
-	err := s.repo.UpdateServiceConfiguration(ctx, db.UpdateServiceConfigurationParams{})
+	err := s.repo.UpdateServiceConfiguration(ctx, *sconfig.ToDB(usecase))
 	if err != nil {
 		return fmt.Errorf("failed to update the service %s in the usecase %s in the configuration: %w", service, usecase, err)
 	}

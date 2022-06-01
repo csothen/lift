@@ -1,7 +1,0 @@
-instances:
-  - type: sonarqube
-    usecase: "c-applications"
-    quantity: 2
-  - type: sonarqube
-    usecase: "go-applications"
-    quantity: 1

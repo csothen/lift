@@ -1,11 +1,18 @@
 package services
 
-import "github.com/csothen/tmdei-project/internal/db"
+import (
+	"github.com/csothen/tmdei-project/internal/config"
+	"github.com/csothen/tmdei-project/internal/db"
+)
 
 type Service struct {
-	repo db.Querier
+	config *config.Config
+	repo   db.Querier
 }
 
-func New(repo db.Querier) *Service {
-	return &Service{repo}
+func New(repo db.Querier, cfg *config.Config) *Service {
+	return &Service{
+		repo:   repo,
+		config: cfg,
+	}
 }

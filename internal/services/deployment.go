@@ -3,11 +3,18 @@ package services
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"path"
+	"sync"
+	"time"
 
 	"github.com/csothen/tmdei-project/internal/db"
-	"github.com/csothen/tmdei-project/internal/helpers"
 	"github.com/csothen/tmdei-project/internal/models"
 	"github.com/csothen/tmdei-project/internal/models/dtos"
+	"github.com/csothen/tmdei-project/internal/terraform"
+	"github.com/csothen/tmdei-project/internal/utils"
 )
 
 // ReadAll retrieves all deployments
@@ -42,44 +49,222 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 	warnings = make([]error, 0)
 	errors = make([]error, 0)
 
-	// TODO: Do the validations
+	// Validate the requested deployments
+	for _, nd := range nds.Deployments {
+		uc := nd.UseCase
+		if _, err := s.repo.GetUseCaseConfiguration(ctx, uc); err != nil {
+			errors = append(errors, fmt.Errorf("could not find usecase %s", uc))
+			continue
+		}
+
+		for _, ns := range nd.Services {
+			st, err := models.TypeString(ns.Service)
+			if err != nil {
+				errors = append(errors, fmt.Errorf("%s is not a valid service", ns.Service))
+				continue
+			}
+			if _, err := s.repo.GetServiceConfiguration(ctx, uc, uint(st)); err != nil {
+				errors = append(errors, fmt.Errorf("could not find configuration for service %s on usecase %s", ns.Service, uc))
+				continue
+			}
+		}
+	}
+
+	// If there were errors then we return the
+	// errors and don't process the deployments
 	if len(errors) > 0 {
 		return nil, nil, errors
 	}
 
-	// TODO: For each individual type of deployment start a goroutine that will do the deployment logic
+	// create the Terraform worker which will do the deployments
+	tfw, err := terraform.NewWorker(s.config.TerraformExecPath)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("could not start terraform worker: %w", err))
+		return nil, nil, errors
+	}
 
+	// get current working directory (root of the project)
+	wd, err := os.Getwd()
+	if err != nil {
+		errors = append(errors, fmt.Errorf("could not retrieve working directory: %w", err))
+		return nil, nil, errors
+	}
+
+	// find the template files that will be used to generate the
+	// actual deployment files
+	templatesDir := path.Join(wd, "templates")
+	dirs, err := os.ReadDir(templatesDir)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("could not read all template directories: %w", err))
+		return nil, nil, errors
+	}
+
+	// load the template files paths in a map
+	templates := make(map[string][]string)
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			continue
+		}
+
+		serviceTemplateDir := path.Join(templatesDir, dir.Name())
+		fis, err := ioutil.ReadDir(serviceTemplateDir)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("could not read all files in dir %s: %w", serviceTemplateDir, err))
+			continue
+		}
+
+		templates[dir.Name()] = make([]string, 0)
+		for _, fi := range fis {
+			if fi.IsDir() {
+				continue
+			}
+			filePaths := templates[dir.Name()]
+			filePaths = append(filePaths, path.Join(serviceTemplateDir, fi.Name()))
+			templates[dir.Name()] = filePaths
+		}
+	}
+
+	// if for some reson we failed to find the files
+	// we return the errors
+	if len(errors) > 0 {
+		return nil, nil, errors
+	}
+
+	// For each individual deployment persist its information
+	// and start a goroutine that will do the deployment logic
+	wg := sync.WaitGroup{}
 	deployments = make([]*dtos.CreatedDeployment, 0)
 	for _, nd := range nds.Deployments {
 		for _, ns := range nd.Services {
-			for i := 1; i <= ns.Count; i++ {
-				canonical := helpers.BuildDeploymentCanonical(nd.UseCase, ns.Service, i)
-				// TODO: Send an actual payload to the DB
-				dbd, err := s.repo.CreateDeployment(ctx, db.CreateDeploymentParams{})
-				if err != nil {
-					warnings = append(warnings, fmt.Errorf("failed to persist the deployment %s: %w", canonical, err))
+			for i := 0; i < ns.Count; i++ {
+				canonical := utils.BuildDeploymentCanonical(nd.UseCase, ns.Service, i+1)
+				// was previously validated
+				st, _ := models.TypeString(ns.Service)
+
+				cd, warning := s.persistDeployment(ctx, canonical, st, nds.CallbackURL)
+				if warning != nil {
+					warnings = append(warnings, warning)
 					continue
 				}
-				var deployment *models.Deployment
-				deployment.FromDB(dbd)
-
-				cd := &dtos.CreatedDeployment{
-					Canonical: canonical,
-					State:     deployment.State.String(),
-					Type:      deployment.Type.String(),
-				}
 				deployments = append(deployments, cd)
+
+				intpl := utils.Interpolator{
+					Name: canonical,
+				}
+
+				// we start goroutines that will do the actual deployments
+				// the deployment consists of:
+				// 1. Read the template files
+				// 2. Replace what needs to be replaced in the template file
+				// 3. Persist the resulting file
+				// 4. Run the terraform using the terraform worker with the resulting files
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					pathToDir := path.Join(wd, "deployment_files", cd.Canonical)
+					err = os.MkdirAll(pathToDir, 0755)
+					if err != nil {
+						errors = append(errors, fmt.Errorf("error creating directory for deployment %s: %w", cd.Canonical, err))
+						return
+					}
+
+					filePaths, ok := templates[ns.Service]
+					if !ok {
+						errors = append(errors, fmt.Errorf("no template founds for the service %s", ns.Service))
+						return
+					}
+
+					for _, fp := range filePaths {
+						f, err := os.Open(fp)
+						if err != nil {
+							errors = append(errors, fmt.Errorf("could not open file %s: %w", fp, err))
+							return
+						}
+						defer f.Close()
+
+						fcontents, err := ioutil.ReadAll(f)
+						if err != nil {
+							errors = append(errors, fmt.Errorf("could not read file %s's contents: %w", fp, err))
+							return
+						}
+
+						fcontents = intpl.Inteprolate(fcontents)
+						filePath := path.Join(pathToDir, path.Base(fp))
+						cf, err := os.Create(filePath)
+						if err != nil {
+							errors = append(errors, fmt.Errorf("could not create file %s: %w", filePath, err))
+							return
+						}
+						defer cf.Close()
+
+						_, err = cf.Write(fcontents)
+						if err != nil {
+							errors = append(errors, fmt.Errorf("could not write to file %s: %w", filePath, err))
+						}
+					}
+
+					err := tfw.Deploy(pathToDir)
+					if err != nil {
+						errors = append(errors, fmt.Errorf("error executing deployment for usecase %s and service %s: %w", nd.UseCase, ns.Service, err))
+						return
+					}
+				}()
 			}
 		}
 	}
-	// TODO: Start a goroutine to listen for changes on the deployments
+
+	// Wait for all the deployment tasks to be over
+	// and check for errors in order for them to be logged
+	go func() {
+		wg.Wait()
+		for _, err := range errors {
+			log.Println(err)
+		}
+	}()
+
+	// Check the deployments' state by making requests to the
+	// instances, checking whether it can be connected with
+	maxRetries := 10
+	delay := time.Second * 30
+	go func() {
+		for maxRetries > 0 {
+			time.Sleep(delay) // wait for the delay time
+			maxRetries--      // decrement retries
+
+			// TODO: Add the logic to check each deployment and see if they are ready to be connected with
+			// If any of the deployments is ready we make the call to the callback URL with the information
+			// If at the end of the retry period any deployment is not ready we cancel it and send the information to the callback URL
+			fmt.Println("Checking deployments")
+		}
+	}()
+
 	return deployments, warnings, nil
+}
+
+func (s *Service) persistDeployment(ctx context.Context, canonical string, st models.Type, callbackURL string) (*dtos.CreatedDeployment, error) {
+	dbd, err := s.repo.CreateDeployment(ctx, db.Deployment{
+		Canonical:   canonical,
+		State:       uint(models.Pending),
+		Type:        uint(st),
+		CallbackURL: callbackURL,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to persist the deployment %s: %w", canonical, err)
+	}
+	var deployment *models.Deployment
+	deployment.FromDB(dbd)
+
+	cd := &dtos.CreatedDeployment{
+		Canonical: canonical,
+		State:     deployment.State.String(),
+		Type:      deployment.Type.String(),
+	}
+	return cd, nil
 }
 
 // Update updates a deployment with the given canonical
 func (s *Service) UpdateDeployment(ctx context.Context, dcan string, d *models.Deployment) error {
-	// TODO: Send an actual payload to the DB
-	err := s.repo.UpdateDeployment(ctx, db.UpdateDeploymentParams{})
+	err := s.repo.UpdateDeployment(ctx, *d.ToDB())
 	if err != nil {
 		return fmt.Errorf("failed to update the deployment %s: %w", dcan, err)
 	}

@@ -114,7 +114,7 @@ func (f *fetcher) fetchPluginInformation(wg *sync.WaitGroup, m *sync.Mutex, urlT
 
 	m.Lock()
 	for _, v := range pd.Versions {
-		f.plugins[buildPluginKey(pd.Key, v.Version)] = &types.Plugin{
+		f.Plugins[buildPluginKey(pd.Key, v.Version)] = &types.Plugin{
 			Name:        pd.Name,
 			Version:     v.Version,
 			DownloadURL: v.URL,

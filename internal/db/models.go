@@ -13,7 +13,7 @@ type APIKey struct {
 type Deployment struct {
 	gorm.Model
 
-	Canonical       string
+	Canonical       string `gorm:"index,unique"`
 	State           uint
 	Type            uint
 	URL             string
@@ -31,27 +31,26 @@ type Credential struct {
 }
 
 type Configuration struct {
-	gorm.Model
-
 	UseCases []UseCaseConfiguration
 }
 
 type UseCaseConfiguration struct {
 	gorm.Model
 
-	Name     string
-	Services []ServiceConfiguration
+	Name     string                 `gorm:"index,unique"`
+	Services []ServiceConfiguration `gorm:"foreignKey:UseCase;references:Name"`
 }
 
 type ServiceConfiguration struct {
 	gorm.Model
 
+	UseCase string
 	Type    uint
 	Version string
-	Plugins []PluginConfiguration
+	Plugins []PluginInformation `gorm:"many2many:service_configuration_plugins;"`
 }
 
-type PluginConfiguration struct {
+type PluginInformation struct {
 	gorm.Model
 
 	Name    string

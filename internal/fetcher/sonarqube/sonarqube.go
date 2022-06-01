@@ -59,7 +59,7 @@ func (f *fetcher) fetchSonarqubeVersions(wg *sync.WaitGroup, ssURL *url.URL) {
 		downloadURL := fmt.Sprintf("https://binaries.sonarsource.com/%s", sqVersion.Key)
 		version := submatches[len(submatches)-1]
 
-		f.sonarqubeVersions[version] = &types.AppVersion{
+		f.SonarqubeVersions[version] = &types.AppVersion{
 			Version:     version,
 			DownloadURL: downloadURL,
 		}

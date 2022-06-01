@@ -3,7 +3,8 @@ package config
 import "github.com/spf13/viper"
 
 type Config struct {
-	Port int
+	Port              int
+	TerraformExecPath string
 	dbConfig
 }
 
@@ -25,5 +26,6 @@ func New(v *viper.Viper) *Config {
 			DBName:     v.GetString("db_name"),
 			DBPort:     v.GetInt("db_port"),
 		},
+		TerraformExecPath: v.GetString("terraform_exec_path"),
 	}
 }

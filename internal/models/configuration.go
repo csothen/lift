@@ -12,47 +12,88 @@ type UseCaseConfiguration struct {
 }
 
 type ServiceConfiguration struct {
-	Type    Type                  `json:"type"`
-	Version string                `json:"version"`
-	Plugins []PluginConfiguration `json:"plugins"`
+	Type    Type                `json:"type"`
+	Version string              `json:"version"`
+	Plugins []PluginInformation `json:"plugins"`
 }
 
-type PluginConfiguration struct {
+type PluginInformation struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
 }
 
-func (c *Configuration) FromDB(dbc db.Configuration) {
+func (c *Configuration) FromDB(dbc *db.Configuration) {
 	c.UseCases = make([]UseCaseConfiguration, len(dbc.UseCases))
 	for _, dbuc := range dbc.UseCases {
-		var uc UseCaseConfiguration
-		uc.FromDB(dbuc)
-		c.UseCases = append(c.UseCases, uc)
+		var uc *UseCaseConfiguration
+		uc.FromDB(&dbuc)
+		c.UseCases = append(c.UseCases, *uc)
 	}
 }
 
-func (uc *UseCaseConfiguration) FromDB(dbuc db.UseCaseConfiguration) {
+func (c *Configuration) ToDB() *db.Configuration {
+	dbc := &db.Configuration{
+		UseCases: make([]db.UseCaseConfiguration, len(c.UseCases)),
+	}
+	for i, uc := range c.UseCases {
+		dbc.UseCases[i] = *uc.ToDB()
+	}
+	return dbc
+}
+
+func (uc *UseCaseConfiguration) FromDB(dbuc *db.UseCaseConfiguration) {
 	uc.Name = dbuc.Name
 	uc.Services = make([]ServiceConfiguration, len(dbuc.Services))
 	for _, dbs := range dbuc.Services {
-		var s ServiceConfiguration
-		s.FromDB(dbs)
-		uc.Services = append(uc.Services, s)
+		var s *ServiceConfiguration
+		s.FromDB(&dbs)
+		uc.Services = append(uc.Services, *s)
 	}
 }
 
-func (s *ServiceConfiguration) FromDB(dbs db.ServiceConfiguration) {
+func (uc *UseCaseConfiguration) ToDB() *db.UseCaseConfiguration {
+	dbuc := &db.UseCaseConfiguration{
+		Name:     uc.Name,
+		Services: make([]db.ServiceConfiguration, len(uc.Services)),
+	}
+	for i, s := range uc.Services {
+		dbuc.Services[i] = *s.ToDB(uc.Name)
+	}
+	return dbuc
+}
+
+func (s *ServiceConfiguration) FromDB(dbs *db.ServiceConfiguration) {
 	s.Type = Type(dbs.Type)
 	s.Version = dbs.Version
-	s.Plugins = make([]PluginConfiguration, len(dbs.Plugins))
+	s.Plugins = make([]PluginInformation, len(dbs.Plugins))
 	for _, dbp := range dbs.Plugins {
-		var p PluginConfiguration
-		p.FromDB(dbp)
-		s.Plugins = append(s.Plugins, p)
+		var p *PluginInformation
+		p.FromDB(&dbp)
+		s.Plugins = append(s.Plugins, *p)
 	}
 }
 
-func (p *PluginConfiguration) FromDB(dbp db.PluginConfiguration) {
+func (s *ServiceConfiguration) ToDB(usecase string) *db.ServiceConfiguration {
+	dbs := &db.ServiceConfiguration{
+		UseCase: usecase,
+		Type:    uint(s.Type),
+		Version: s.Version,
+		Plugins: make([]db.PluginInformation, len(s.Plugins)),
+	}
+	for i, p := range s.Plugins {
+		dbs.Plugins[i] = *p.ToDB()
+	}
+	return dbs
+}
+
+func (p *PluginInformation) FromDB(dbp *db.PluginInformation) {
 	p.Name = dbp.Name
 	p.Version = dbp.Version
+}
+
+func (p *PluginInformation) ToDB() *db.PluginInformation {
+	return &db.PluginInformation{
+		Name:    p.Name,
+		Version: p.Version,
+	}
 }

@@ -18,22 +18,22 @@ type Querier interface {
 	RefreshAPIKey(ctx context.Context, newKey string) error
 
 	// Configuration CRUD operations
-	GetConfiguration(ctx context.Context) (Configuration, error)
-	GetUseCaseConfiguration(ctx context.Context, uc string) (UseCaseConfiguration, error)
-	GetServiceConfiguration(ctx context.Context, uc string, service uint) (ServiceConfiguration, error)
-	CreateUseCaseConfiguration(ctx context.Context, params CreateUseCaseConfigurationParams) (UseCaseConfiguration, error)
-	CreateServiceConfiguration(ctx context.Context, params CreateServiceConfigurationParams) (ServiceConfiguration, error)
-	UpdateConfiguration(ctx context.Context, params UpdateConfigurationParams) error
-	UpdateUseCaseConfiguration(ctx context.Context, params UpdateUseCaseConfigurationParams) error
-	UpdateServiceConfiguration(ctx context.Context, params UpdateServiceConfigurationParams) error
+	GetConfiguration(ctx context.Context) (*Configuration, error)
+	GetUseCaseConfiguration(ctx context.Context, uc string) (*UseCaseConfiguration, error)
+	GetServiceConfiguration(ctx context.Context, uc string, service uint) (*ServiceConfiguration, error)
+	CreateUseCaseConfiguration(ctx context.Context, newUC UseCaseConfiguration) (*UseCaseConfiguration, error)
+	CreateServiceConfiguration(ctx context.Context, newS ServiceConfiguration) (*ServiceConfiguration, error)
+	UpdateConfiguration(ctx context.Context, updatedC Configuration) error
+	UpdateUseCaseConfiguration(ctx context.Context, updatedUC UseCaseConfiguration) error
+	UpdateServiceConfiguration(ctx context.Context, updatedS ServiceConfiguration) error
 	DeleteUseCaseConfiguration(ctx context.Context, uc string) error
 	DeleteServiceConfiguration(ctx context.Context, uc string, service uint) error
 
 	// Deployment operations
-	GetAllDeployments(ctx context.Context) ([]Deployment, error)
-	GetDeploymentByCanonical(ctx context.Context, can string) (Deployment, error)
-	CreateDeployment(ctx context.Context, params CreateDeploymentParams) (Deployment, error)
-	UpdateDeployment(ctx context.Context, params UpdateDeploymentParams) error
+	GetAllDeployments(ctx context.Context) ([]*Deployment, error)
+	GetDeploymentByCanonical(ctx context.Context, can string) (*Deployment, error)
+	CreateDeployment(ctx context.Context, newD Deployment) (*Deployment, error)
+	UpdateDeployment(ctx context.Context, updatedD Deployment) error
 	DeleteDeployment(ctx context.Context, can string) error
 }
 
@@ -51,7 +51,7 @@ func New(cfg *config.Config) Querier {
 	db.AutoMigrate(
 		&APIKey{},
 		&Deployment{}, &Credential{},
-		&Configuration{}, &UseCaseConfiguration{}, &ServiceConfiguration{}, &PluginConfiguration{},
+		&UseCaseConfiguration{}, &ServiceConfiguration{}, &PluginInformation{},
 	)
 
 	return &querier{db}

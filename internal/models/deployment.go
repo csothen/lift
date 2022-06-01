@@ -33,7 +33,7 @@ type Credential struct {
 	AccessToken string `json:"access_token"`
 }
 
-func (d *Deployment) FromDB(dbd db.Deployment) {
+func (d *Deployment) FromDB(dbd *db.Deployment) {
 	d.Canonical = dbd.Canonical
 	d.State = State(dbd.State)
 	d.Type = Type(dbd.Type)
@@ -41,16 +41,36 @@ func (d *Deployment) FromDB(dbd db.Deployment) {
 	d.CallbackURL = dbd.CallbackURL
 
 	var aCred Credential
-	aCred.FromDB(dbd.AdminCredential)
+	aCred.FromDB(&dbd.AdminCredential)
 	d.AdminCredential = aCred
 
 	var uCred Credential
-	uCred.FromDB(dbd.UserCredential)
+	uCred.FromDB(&dbd.UserCredential)
 	d.UserCredential = uCred
 }
 
-func (c *Credential) FromDB(dbc db.Credential) {
+func (d *Deployment) ToDB() *db.Deployment {
+	return &db.Deployment{
+		Canonical:       d.Canonical,
+		State:           uint(d.State),
+		Type:            uint(d.Type),
+		URL:             d.URL,
+		AdminCredential: *d.AdminCredential.ToDB(),
+		UserCredential:  *d.UserCredential.ToDB(),
+		CallbackURL:     d.CallbackURL,
+	}
+}
+
+func (c *Credential) FromDB(dbc *db.Credential) {
 	c.Username = dbc.Username
 	c.Password = dbc.Password
 	c.AccessToken = dbc.AccessToken
+}
+
+func (c *Credential) ToDB() *db.Credential {
+	return &db.Credential{
+		Username:    c.Username,
+		Password:    c.Password,
+		AccessToken: c.AccessToken,
+	}
 }
