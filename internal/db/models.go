@@ -13,13 +13,15 @@ type APIKey struct {
 type Deployment struct {
 	gorm.Model
 
-	Canonical       string `gorm:"index,unique"`
-	State           uint
-	Type            uint
-	URL             string
-	AdminCredential Credential
-	UserCredential  Credential
-	CallbackURL     string
+	Canonical         string `gorm:"uniqueIndex"`
+	State             uint
+	Type              uint
+	URL               string
+	AdminCredentialID uint
+	AdminCredential   Credential
+	UserCredentialID  uint
+	UserCredential    Credential
+	CallbackURL       string
 }
 
 type Credential struct {
@@ -37,7 +39,7 @@ type Configuration struct {
 type UseCaseConfiguration struct {
 	gorm.Model
 
-	Name     string                 `gorm:"index,unique"`
+	Name     string                 `gorm:"uniqueIndex"`
 	Services []ServiceConfiguration `gorm:"foreignKey:UseCase;references:Name"`
 }
 

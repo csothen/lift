@@ -1,0 +1,22 @@
+FROM golang:alpine as builder
+RUN mkdir /build 
+ADD . /build/
+WORKDIR /build 
+RUN go build -o main .
+
+FROM alpine
+RUN adduser -S -D -H -h /app appuser
+USER appuser
+COPY --from=builder /build/main /app/
+COPY ./.env /app/
+WORKDIR /app
+
+ARG db_user
+ARG db_password
+ARG db_host
+
+ENV DB_USER=${db_user}
+ENV DB_PASSWORD=${db_password}
+ENV DB_HOST=${db_host}
+
+CMD ["sh", "-c", "./main server --db_user ${DB_USER} --db_password ${DB_PASSWORD} --db_host ${DB_HOST}"]

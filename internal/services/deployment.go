@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"sync"
-	"time"
 
 	"github.com/csothen/tmdei-project/internal/db"
 	"github.com/csothen/tmdei-project/internal/models"
@@ -77,22 +76,15 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 	}
 
 	// create the Terraform worker which will do the deployments
-	tfw, err := terraform.NewWorker(s.config.TerraformExecPath)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("could not start terraform worker: %w", err))
-		return nil, nil, errors
-	}
-
-	// get current working directory (root of the project)
-	wd, err := os.Getwd()
-	if err != nil {
-		errors = append(errors, fmt.Errorf("could not retrieve working directory: %w", err))
-		return nil, nil, errors
-	}
+	tfw := terraform.NewWorker(s.config.TerraformExecPath)
 
 	// find the template files that will be used to generate the
 	// actual deployment files
-	templatesDir := path.Join(wd, "templates")
+	templatesDir, err := utils.BuildTemplatesFolderPath()
+	if err != nil {
+		errors = append(errors, fmt.Errorf("could not build templates directory path: %w", err))
+	}
+
 	dirs, err := os.ReadDir(templatesDir)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("could not read all template directories: %w", err))
@@ -141,15 +133,22 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 				// was previously validated
 				st, _ := models.TypeString(ns.Service)
 
-				cd, warning := s.persistDeployment(ctx, canonical, st, nds.CallbackURL)
+				d, warning := s.persistDeployment(ctx, canonical, st, nds.CallbackURL)
 				if warning != nil {
 					warnings = append(warnings, warning)
 					continue
 				}
+
+				cd := &dtos.CreatedDeployment{
+					Canonical: canonical,
+					State:     d.State.String(),
+					Type:      d.Type.String(),
+				}
 				deployments = append(deployments, cd)
 
 				intpl := utils.Interpolator{
-					Name: canonical,
+					Name:  canonical,
+					Count: 1,
 				}
 
 				// we start goroutines that will do the actual deployments
@@ -161,7 +160,13 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					pathToDir := path.Join(wd, "deployment_files", cd.Canonical)
+
+					pathToDir, err := utils.BuildDeploymentFolderPath(cd.Canonical)
+					if err != nil {
+						errors = append(errors, fmt.Errorf("could not build deployments path: %w", err))
+						return
+					}
+
 					err = os.MkdirAll(pathToDir, 0755)
 					if err != nil {
 						errors = append(errors, fmt.Errorf("error creating directory for deployment %s: %w", cd.Canonical, err))
@@ -203,9 +208,24 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 						}
 					}
 
-					err := tfw.Deploy(pathToDir)
+					err = tfw.Deploy(pathToDir)
 					if err != nil {
-						errors = append(errors, fmt.Errorf("error executing deployment for usecase %s and service %s: %w", nd.UseCase, ns.Service, err))
+						errors = append(errors, fmt.Errorf("error executing deployment %s: %w", cd.Canonical, err))
+						return
+					}
+
+					outputs, err := tfw.Outputs(pathToDir)
+					if err != nil {
+						errors = append(errors, fmt.Errorf("error retrieving the public IP of the deployment %s: %w", cd.Canonical, err))
+						return
+					}
+
+					deploymentURL := outputs["public_ips"]
+					dbd := d.ToDB()
+					dbd.URL = deploymentURL
+					err = s.repo.UpdateDeployment(ctx, *dbd)
+					if err != nil {
+						errors = append(errors, fmt.Errorf("error updating deployment %s's URL: %w", cd.Canonical, err))
 						return
 					}
 				}()
@@ -221,27 +241,10 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 			log.Println(err)
 		}
 	}()
-
-	// Check the deployments' state by making requests to the
-	// instances, checking whether it can be connected with
-	maxRetries := 10
-	delay := time.Second * 30
-	go func() {
-		for maxRetries > 0 {
-			time.Sleep(delay) // wait for the delay time
-			maxRetries--      // decrement retries
-
-			// TODO: Add the logic to check each deployment and see if they are ready to be connected with
-			// If any of the deployments is ready we make the call to the callback URL with the information
-			// If at the end of the retry period any deployment is not ready we cancel it and send the information to the callback URL
-			fmt.Println("Checking deployments")
-		}
-	}()
-
 	return deployments, warnings, nil
 }
 
-func (s *Service) persistDeployment(ctx context.Context, canonical string, st models.Type, callbackURL string) (*dtos.CreatedDeployment, error) {
+func (s *Service) persistDeployment(ctx context.Context, canonical string, st models.Type, callbackURL string) (*models.Deployment, error) {
 	dbd, err := s.repo.CreateDeployment(ctx, db.Deployment{
 		Canonical:   canonical,
 		State:       uint(models.Pending),
@@ -254,12 +257,7 @@ func (s *Service) persistDeployment(ctx context.Context, canonical string, st mo
 	var deployment *models.Deployment
 	deployment.FromDB(dbd)
 
-	cd := &dtos.CreatedDeployment{
-		Canonical: canonical,
-		State:     deployment.State.String(),
-		Type:      deployment.Type.String(),
-	}
-	return cd, nil
+	return deployment, nil
 }
 
 // Update updates a deployment with the given canonical

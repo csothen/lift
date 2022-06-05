@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/csothen/tmdei-project/internal/fetcher/types"
+	"github.com/csothen/tmdei-project/internal/utils"
 )
 
 type fetcher struct {
@@ -76,12 +77,12 @@ func (f *fetcher) ListApplicationVersions() []*types.AppVersion {
 }
 
 func (f *fetcher) writeData() error {
-	d, err := os.Getwd()
+	staticPath, err := utils.BuildStaticFolderPath()
 	if err != nil {
-		return fmt.Errorf("failed to write data: %w", err)
+		return fmt.Errorf("could retrieve static folder path: %w", err)
 	}
 
-	staticPath := path.Join(path.Join(d, "static"))
+	// Make sure the static folder exists
 	err = os.MkdirAll(staticPath, 0755)
 	if err != nil {
 		return fmt.Errorf("could not create static folder: %w", err)

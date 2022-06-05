@@ -1,6 +1,11 @@
 package models
 
-import "github.com/csothen/tmdei-project/internal/db"
+import (
+	"time"
+
+	"github.com/csothen/tmdei-project/internal/db"
+	"gorm.io/gorm"
+)
 
 //go:generate go run github.com/dmarkham/enumer -type=Type -transform=snake -output=type_string.go -linecomment=true
 //go:generate go run github.com/dmarkham/enumer -type=State -transform=snake -output=state_string.go -linecomment=true
@@ -25,6 +30,7 @@ type Deployment struct {
 	AdminCredential Credential `json:"admin_cred"`
 	UserCredential  Credential `json:"user_cred"`
 	CallbackURL     string     `json:"callback_url"`
+	CreatedAt       time.Time  `json:"created_at"`
 }
 
 type Credential struct {
@@ -39,6 +45,7 @@ func (d *Deployment) FromDB(dbd *db.Deployment) {
 	d.Type = Type(dbd.Type)
 	d.URL = dbd.URL
 	d.CallbackURL = dbd.CallbackURL
+	d.CreatedAt = dbd.CreatedAt
 
 	var aCred Credential
 	aCred.FromDB(&dbd.AdminCredential)
@@ -58,6 +65,9 @@ func (d *Deployment) ToDB() *db.Deployment {
 		AdminCredential: *d.AdminCredential.ToDB(),
 		UserCredential:  *d.UserCredential.ToDB(),
 		CallbackURL:     d.CallbackURL,
+		Model: gorm.Model{
+			CreatedAt: d.CreatedAt,
+		},
 	}
 }
 

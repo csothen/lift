@@ -2,8 +2,13 @@ terraform {
   required_providers {
     aws = {
       source = "hashicorp/aws"
+      version = "3.74.0"
     }
   }
+}
+
+provider "aws" {
+  region = "eu-west-1"
 }
 
 resource "aws_instance" "($ name $)" {
@@ -21,7 +26,8 @@ resource "aws_instance" "($ name $)" {
     command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u root -i '${self.ipv4_address} ansible.yml"
   }
 
-  output "ec2_global_ips" {
+  output "public_ips" {
+    description = "Public IPs of the instances"
     value = ["${aws_instance.main.*.public_ip}"]
   }
 }

@@ -16,3 +16,6 @@
 
 # Static files
 static/
+
+# Environment files
+.env

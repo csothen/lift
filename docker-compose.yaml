@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  server:
+    container_name: ${APP_NAME}_server
+    restart: always
+    build:
+      context: .
+      args:
+        - db_user=$DB_USER
+        - db_password=$DB_PASSWORD
+        - db_host=psql_db
+      dockerfile: Dockerfile.server
+    depends_on:
+      - psql_db
+    ports:
+      - '8080:8080'
+    networks:
+      - backend
+  
+  observer:
+    container_name: ${APP_NAME}_observer
+    restart: always
+    build:
+      context: .
+      args:
+        - db_user=$DB_USER
+        - db_password=$DB_PASSWORD
+        - db_host=psql_db
+      dockerfile: Dockerfile.observer
+    depends_on:
+      - psql_db
+    networks:
+      - backend
+  
+  psql_db:
+    container_name: ${APP_NAME}_db
+    build:
+      context: db
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      POSTGRES_USER: $DB_USER
+      POSTGRES_PASSWORD: $DB_PASSWORD
+      POSTGRES_DB: $DB_NAME
+    ports:
+      - '5432:5432'
+    volumes:
+      - db-data:/data/db
+    networks:
+      - backend
+
+volumes:
+  db-data:
+
+networks:
+  backend:
