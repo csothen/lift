@@ -37,5 +37,6 @@ func init() {
 	RootCmd.AddCommand(
 		serverCmd,
 		observerCmd,
+		fetchCmd,
 	)
 }
