@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/csothen/tmdei-project/cmd"
+	"github.com/csothen/lift/cmd"
 )
 
 func main() {

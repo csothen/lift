@@ -13,7 +13,7 @@ func (r *mutationResolver) AddUseCaseConfiguration(ctx context.Context, input Ne
 		return nil, err
 	}
 
-	var cfg *Configuration
+	cfg := &Configuration{}
 	cfg.fromModel(*configuration)
 	return cfg, nil
 }
@@ -24,7 +24,7 @@ func (r *mutationResolver) AddServiceConfiguration(ctx context.Context, input Ne
 		return nil, err
 	}
 
-	var cfg *Configuration
+	cfg := &Configuration{}
 	cfg.fromModel(*configuration)
 	return cfg, nil
 }
@@ -32,7 +32,7 @@ func (r *mutationResolver) AddServiceConfiguration(ctx context.Context, input Ne
 func (r *queryResolver) Configuration(ctx context.Context) (*Configuration, error) {
 	configuration := r.s.ReadConfiguration(ctx)
 
-	var cfg *Configuration
+	cfg := &Configuration{}
 	cfg.fromModel(*configuration)
 	return cfg, nil
 }
@@ -43,7 +43,7 @@ func (r *queryResolver) FindUseCaseConfiguration(ctx context.Context, name strin
 		return nil, err
 	}
 
-	var ucc *UseCaseConfiguration
+	ucc := &UseCaseConfiguration{}
 	ucc.fromModel(*ucConfiguration)
 	return ucc, nil
 }
@@ -54,7 +54,7 @@ func (r *queryResolver) FindServiceConfiguration(ctx context.Context, uc string,
 		return nil, err
 	}
 
-	var sc *ServiceConfiguration
+	sc := &ServiceConfiguration{}
 	sc.fromModel(*sConfiguration)
 	return sc, nil
 }

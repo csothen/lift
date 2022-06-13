@@ -7,7 +7,7 @@ import (
 
 func (q *querier) GetConfiguration(ctx context.Context) (*Configuration, error) {
 	var usecases []UseCaseConfiguration
-	res := q.db.Find(&usecases)
+	res := q.db.Preload("Services.Plugins").Find(&usecases)
 	if res.Error != nil {
 		return nil, fmt.Errorf("configuration not found: %w", res.Error)
 	}
@@ -19,7 +19,7 @@ func (q *querier) GetConfiguration(ctx context.Context) (*Configuration, error) 
 
 func (q *querier) GetUseCaseConfiguration(ctx context.Context, uc string) (*UseCaseConfiguration, error) {
 	var ucconfig UseCaseConfiguration
-	res := q.db.First(&ucconfig, "name = ?", uc)
+	res := q.db.Preload("Services.Plugins").First(&ucconfig, "name = ?", uc)
 	if res.Error != nil {
 		return nil, fmt.Errorf("use case not found: %w", res.Error)
 	}
@@ -28,7 +28,7 @@ func (q *querier) GetUseCaseConfiguration(ctx context.Context, uc string) (*UseC
 
 func (q *querier) GetServiceConfiguration(ctx context.Context, uc string, service uint) (*ServiceConfiguration, error) {
 	var sconfig ServiceConfiguration
-	res := q.db.First(&sconfig, "type = ? AND use_case = ?", service, uc)
+	res := q.db.Preload("Plugins").First(&sconfig, "type = ? AND use_case = ?", service, uc)
 	if res.Error != nil {
 		return nil, fmt.Errorf("service configuration not found: %w", res.Error)
 	}
@@ -42,7 +42,7 @@ func (q *querier) CreateUseCaseConfiguration(ctx context.Context, newUC UseCaseC
 	}
 
 	var ucconfig UseCaseConfiguration
-	fres := q.db.First(&ucconfig, "name = ?", newUC.Name)
+	fres := q.db.Preload("Services.Plugins").First(&ucconfig, "name = ?", newUC.Name)
 	if fres.Error != nil {
 		return nil, fmt.Errorf("failed to create usecase configuration: %w", fres.Error)
 	}
@@ -56,7 +56,7 @@ func (q *querier) CreateServiceConfiguration(ctx context.Context, newS ServiceCo
 	}
 
 	var sconfig ServiceConfiguration
-	fres := q.db.First(&sconfig, "type = ? AND use_case = ?", newS.Type, newS.UseCase)
+	fres := q.db.Preload("Plugins").First(&sconfig, "type = ? AND use_case = ?", newS.Type, newS.UseCase)
 	if fres.Error != nil {
 		return nil, fmt.Errorf("failed to create service configuration: %w", fres.Error)
 	}

@@ -9,7 +9,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/csothen/tmdei-project/internal/config"
+	"github.com/csothen/lift/internal/config"
 )
 
 type Querier interface {
@@ -35,6 +35,10 @@ type Querier interface {
 	CreateDeployment(ctx context.Context, newD Deployment) (*Deployment, error)
 	UpdateDeployment(ctx context.Context, updatedD Deployment) error
 	DeleteDeployment(ctx context.Context, can string) error
+
+	// Instances operations
+	BatchCreateInstances(ctx context.Context, instances []Instance) error
+	UpdateInstance(ctx context.Context, updatedI Instance) error
 }
 
 type querier struct {
@@ -50,7 +54,7 @@ func New(cfg *config.Config) Querier {
 
 	db.AutoMigrate(
 		&APIKey{},
-		&Deployment{}, &Credential{},
+		&Deployment{}, &Instance{}, &Credential{},
 		&UseCaseConfiguration{}, &ServiceConfiguration{}, &PluginInformation{},
 	)
 

@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/csothen/tmdei-project/internal/models"
-	"github.com/csothen/tmdei-project/internal/models/dtos"
+	"github.com/csothen/lift/internal/models"
+	"github.com/csothen/lift/internal/models/dtos"
 )
 
 // ReadConfiguration reads the whole configuration
 func (s *Service) ReadConfiguration(ctx context.Context) *models.Configuration {
-	var cfg *models.Configuration
+	cfg := &models.Configuration{}
 	dbConfig, err := s.repo.GetConfiguration(ctx)
 	if err != nil {
 		return cfg
@@ -21,7 +21,7 @@ func (s *Service) ReadConfiguration(ctx context.Context) *models.Configuration {
 
 // ReadConfigurationUseCase reads the information of a specific usecase of the configuration
 func (s *Service) ReadConfigurationUseCase(ctx context.Context, usecase string) (*models.UseCaseConfiguration, error) {
-	var ucCfg *models.UseCaseConfiguration
+	ucCfg := &models.UseCaseConfiguration{}
 	dbUcConfig, err := s.repo.GetUseCaseConfiguration(ctx, usecase)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve use case '%s' configuration: %w", usecase, err)
@@ -32,7 +32,7 @@ func (s *Service) ReadConfigurationUseCase(ctx context.Context, usecase string) 
 
 // ReadConfigurationService reads the information of a specific service in a given usecase of the configuration
 func (s *Service) ReadConfigurationService(ctx context.Context, usecase, service string) (*models.ServiceConfiguration, error) {
-	var sCfg *models.ServiceConfiguration
+	sCfg := &models.ServiceConfiguration{}
 	stype, err := models.TypeString(service)
 	if err != nil {
 		return nil, fmt.Errorf("invalid service type %s: %w", service, err)
@@ -58,7 +58,7 @@ func (s *Service) AddConfigurationUseCase(ctx context.Context, ucconfig *dtos.Ne
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve the global configuration: %w", err)
 	}
-	var gconfig *models.Configuration
+	gconfig := &models.Configuration{}
 	gconfig.FromDB(dbgc)
 	return gconfig, nil
 }
@@ -75,7 +75,7 @@ func (s *Service) AddConfigurationService(ctx context.Context, usecase string, s
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve the global configuration: %w", err)
 	}
-	var gconfig *models.Configuration
+	gconfig := &models.Configuration{}
 	gconfig.FromDB(dbgc)
 	return gconfig, nil
 }

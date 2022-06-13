@@ -2,6 +2,7 @@ package terraform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/hashicorp/terraform-exec/tfexec"
@@ -45,7 +46,7 @@ func (w *Worker) Deploy(dir string) error {
 	return nil
 }
 
-func (w *Worker) Outputs(dir string) (map[string]string, error) {
+func (w *Worker) GetIPs(dir string) ([]string, error) {
 	ctx := context.Background()
 
 	tf, err := tfexec.NewTerraform(dir, w.execPath)
@@ -58,11 +59,17 @@ func (w *Worker) Outputs(dir string) (map[string]string, error) {
 		return nil, fmt.Errorf("could not get the outputs: %w", err)
 	}
 
-	om := make(map[string]string)
-	for key, output := range outputs {
-		om[key] = string(output.Value)
+	jsonIPs, ok := outputs["public_ips"]
+	if !ok {
+		return []string{}, nil
 	}
-	return om, nil
+
+	ips := make([]string, 0)
+	err = json.Unmarshal(jsonIPs.Value, &ips)
+	if err != nil {
+		return nil, fmt.Errorf("could no unmarshal IPs: %w", err)
+	}
+	return ips, nil
 }
 
 func (w *Worker) Teardown(dir string) error {

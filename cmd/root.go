@@ -19,7 +19,7 @@ func init() {
 	viper.BindPFlag("debug", RootCmd.PersistentFlags().Lookup("debug"))
 
 	// Terraform flags
-	RootCmd.PersistentFlags().String("terraform_exec_path", "/usr/bin/terraform", "Path to the terraform executable")
+	RootCmd.PersistentFlags().String("terraform_exec_path", "", "Path to the terraform executable")
 	viper.BindPFlag("terraform_exec_path", RootCmd.PersistentFlags().Lookup("terraform_exec_path"))
 
 	// Database configuration flags

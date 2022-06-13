@@ -5,15 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/csothen/tmdei-project/internal/config"
-	"github.com/csothen/tmdei-project/internal/models"
-	"github.com/csothen/tmdei-project/internal/services"
-	"github.com/csothen/tmdei-project/internal/terraform"
-	"github.com/csothen/tmdei-project/internal/utils"
+	"github.com/csothen/lift/internal/config"
+	"github.com/csothen/lift/internal/models"
+	"github.com/csothen/lift/internal/sdk/sonarqube"
+	"github.com/csothen/lift/internal/services"
+	"github.com/csothen/lift/internal/terraform"
+	"github.com/csothen/lift/internal/utils"
 )
 
 type Worker struct {
@@ -23,9 +26,7 @@ type Worker struct {
 
 const (
 	delay time.Duration = time.Minute * 1
-	limit time.Duration = time.Minute * 30
-
-	sonarqubeHealthcheckURL string = "http://%s/health"
+	limit time.Duration = time.Minute * 15
 )
 
 func NewWorker(s *services.Service, cfg *config.Config) *Worker {
@@ -36,81 +37,158 @@ func (w *Worker) Start() error {
 	tfw := terraform.NewWorker(w.cfg.TerraformExecPath)
 
 	for {
+		log.Println("Started iterating over deployments...")
 		ctx := context.Background()
 		deployments := w.s.ReadAllDeployments(ctx)
 		now := time.Now()
 		for _, d := range deployments {
-			if d.State != models.Pending {
-				continue
-			}
+			// check whether we already exceeded the time limit
+			exceededLimit := now.Sub(d.CreatedAt) > limit
 
-			ok, err := checkConnection(d)
-			if !ok || err != nil {
+			/**
+			For each instance we will check whether it is up and running
+			If it is not and the limit was exceeded we delete the whole deployment
+			Otherwise we skip it
+			If it is running we will create a user for the end user to use to login
+			we persist that information and notify the user
+			*/
+			for _, i := range d.Instances {
+				if i.State != models.Pending {
+					continue
+				}
+
+				ok := w.checkConnection(i, d.Type)
+				if !ok {
+					err := w.handleFailedConnection(d.Canonical, exceededLimit, tfw)
+					if err != nil {
+						log.Println(err)
+					}
+					continue
+				}
+
+				err := w.handleSuccessfulConnection(i, *d)
 				if err != nil {
 					log.Println(err)
 				}
-				// In case the deployment has exceeded the limit
-				// of time it is allowed to take to be up without working
-				// we destroy it
-				// TODO: Add the creation date to the domain model
-				if now.Sub(d.CreatedAt) > limit {
-					deploymentPath, err := utils.BuildDeploymentFolderPath(d.Canonical)
-					if err != nil {
-						log.Println(err)
-						continue
-					}
-
-					err = tfw.Teardown(deploymentPath)
-					if err != nil {
-						log.Println(err)
-						continue
-					}
-
-					d.State = models.Stopped
-					err = w.s.DeleteDeployment(ctx, d.Canonical)
-					if err != nil {
-						log.Println(err)
-						continue
-					}
-				}
 			}
-
-			d.State = models.Running
-			err = notifyUser(d)
-			if err != nil {
-				log.Println(err)
-			}
-			w.s.UpdateDeployment(ctx, d.Canonical, d)
 		}
-
 		time.Sleep(delay)
 	}
 }
 
-func checkConnection(d *models.Deployment) (bool, error) {
-	switch d.Type {
+func (w *Worker) checkConnection(i models.Instance, st models.Type) bool {
+	log.Printf("Checking connection on URL %s\n", i.URL)
+	switch st {
 	case models.SonarqubeService:
-		res, err := http.Get(fmt.Sprintf(sonarqubeHealthcheckURL, d.URL))
-		if err != nil || res.StatusCode != 200 {
-			return false, nil
+		status, err := sonarqube.Status(i.URL)
+		if err != nil || status != sonarqube.Up {
+			log.Println(err)
+			return false
 		}
-		return true, nil
+		return true
 	default:
-		return false, fmt.Errorf("service %s not supported", d.Type.String())
+		return false
 	}
 }
 
-func notifyUser(d *models.Deployment) error {
-	d.AdminCredential = models.Credential{}
-	data, err := json.Marshal(d)
+func (w *Worker) handleFailedConnection(canonical string, exceededLimit bool, tfw *terraform.Worker) error {
+	log.Println("Handling failed connection")
+	if !exceededLimit {
+		return nil
+	}
+
+	deploymentDir, err := utils.BuildDeploymentFolderPath(canonical)
+	if err != nil {
+		return fmt.Errorf("could not build path to deployment %s: %w", canonical, err)
+	}
+
+	go func() {
+		err = tfw.Teardown(deploymentDir)
+		if err != nil {
+			log.Println(fmt.Errorf("could not teardown deployment %s: %w", canonical, err))
+			return
+		}
+
+		err = os.RemoveAll(deploymentDir)
+		if err != nil {
+			log.Println(fmt.Errorf("could not delete deployment files folder: %w", err))
+			return
+		}
+
+		err = w.s.DeleteDeployment(context.Background(), canonical)
+		if err != nil {
+			log.Println(fmt.Errorf("could not delete deployment: %w", err))
+		}
+	}()
+	return nil
+}
+
+func (w *Worker) handleSuccessfulConnection(i models.Instance, d models.Deployment) error {
+	log.Println("Handling successful connection")
+	userCreds, err := w.createUserCredentials(i, d)
+	if err != nil {
+		return fmt.Errorf("could not create user credentials: %w", err)
+	}
+
+	// update the instance to hold user credentials and new state
+	i, err = w.updateInstance(i, d.Canonical, userCreds)
+	if err != nil {
+		return fmt.Errorf("could not update instance: %w", err)
+	}
+
+	// obfuscate the admin credentials
+	i.AdminCredential = models.Credential{}
+
+	// notify the user that the service requested is available
+	data, err := json.Marshal(i)
 	if err != nil {
 		return fmt.Errorf("could not parse data into json: %w", err)
 	}
 
 	r := strings.NewReader(string(data))
-	_, err = http.Post(d.CallbackURL, "application/json", r)
+	_, err = http.Post(fmt.Sprintf("%s/%s", d.CallbackURL, d.Canonical), "application/json", r)
 	if err != nil {
 		return fmt.Errorf("could not call user's service: %w", err)
 	}
 	return nil
+}
+
+func (w *Worker) createUserCredentials(i models.Instance, d models.Deployment) (*models.Credential, error) {
+	host := i.URL
+	username, password := "user", utils.GeneratePassword(int64(rand.Int()))
+	adminUsername, adminPassword := i.AdminCredential.Username, i.AdminCredential.Password
+
+	cred := models.Credential{
+		Username: username,
+		Password: password,
+	}
+
+	switch d.Type {
+	case models.SonarqubeService:
+		err := sonarqube.CreateUser(host, username, password, adminUsername, adminPassword)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create sonarqube user: %w", err)
+		}
+
+		for _, permission := range []string{"scan", "provisioning"} {
+			err = sonarqube.AddPermissionToUser(host, username, permission, adminUsername, adminPassword)
+			if err != nil {
+				return nil, fmt.Errorf("failed to add permission %s to user: %w", permission, err)
+			}
+		}
+		return &cred, nil
+	default:
+		return nil, fmt.Errorf("service type %s not supported", d.Type.String())
+	}
+}
+
+func (w *Worker) updateInstance(i models.Instance, dcan string, userCreds *models.Credential) (models.Instance, error) {
+	i.UserCredential = *userCreds
+	i.State = models.Running
+
+	err := w.s.UpdateInstance(context.Background(), dcan, &i)
+	if err != nil {
+		return i, fmt.Errorf("could not persist user credential: %w", err)
+	}
+	return i, nil
 }

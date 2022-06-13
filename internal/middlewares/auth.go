@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/csothen/tmdei-project/internal/services"
+	"github.com/csothen/lift/internal/services"
 )
 
 func Auth(s *services.Service) func(next http.Handler) http.Handler {

@@ -1,10 +1,17 @@
-package plugins
+package fetcher
 
-import "github.com/csothen/tmdei-project/internal/fetcher/types"
+import (
+	"github.com/csothen/lift/internal/fetcher/types"
+)
 
 type Fetcher interface {
-	// Reload will reload all the necessary information from the Internet
+	// Reload will load the data from a static file, if the file is not found
+	// it will call the Fetch method to populate the fetcher and create a file
 	Reload() error
+
+	// Fetch will fetch all the necessary information from the Internet
+	// and persist it in a static file
+	Fetch() error
 
 	// GetPlugin takes a name of the plugin and the version wanted and returns
 	// either the plugin found or an error in case it does not exist

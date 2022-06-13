@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/csothen/tmdei-project/internal/fetcher/types"
+	"github.com/csothen/lift/internal/fetcher/types"
 )
 
 const sonarqubeSource = "https://downloads-cdn-eu-central-1-prod.s3.eu-central-1.amazonaws.com/?delimiter=/&prefix=Distribution%2Fsonarqube%2F"

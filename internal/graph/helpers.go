@@ -1,8 +1,8 @@
 package graph
 
 import (
-	"github.com/csothen/tmdei-project/internal/models"
-	"github.com/csothen/tmdei-project/internal/models/dtos"
+	"github.com/csothen/lift/internal/models"
+	"github.com/csothen/lift/internal/models/dtos"
 )
 
 func (nuc *NewUseCaseConfiguration) toDTO() *dtos.NewUseCaseConfiguration {
@@ -65,7 +65,7 @@ func (nd *NewDeployment) toDTO() *dtos.NewDeployment {
 func (c *Configuration) fromModel(cm models.Configuration) {
 	c.Usecases = make([]UseCaseConfiguration, len(cm.UseCases))
 	for i, ucm := range cm.UseCases {
-		var uc *UseCaseConfiguration
+		uc := &UseCaseConfiguration{}
 		uc.fromModel(ucm)
 		c.Usecases[i] = *uc
 	}
@@ -75,7 +75,7 @@ func (uc *UseCaseConfiguration) fromModel(ucm models.UseCaseConfiguration) {
 	uc.Name = ucm.Name
 	uc.Services = make([]ServiceConfiguration, len(ucm.Services))
 	for i, sm := range ucm.Services {
-		var s *ServiceConfiguration
+		s := &ServiceConfiguration{}
 		s.fromModel(sm)
 		uc.Services[i] = *s
 	}
@@ -95,14 +95,24 @@ func (s *ServiceConfiguration) fromModel(sm models.ServiceConfiguration) {
 
 func (d *Deployment) fromModel(dm models.Deployment) {
 	d.Canonical = dm.Canonical
-	d.State = dm.State.String()
+	d.Instances = make([]Instance, len(dm.Instances))
 	d.Type = dm.Type.String()
-	d.URL = dm.URL
 	d.CallbackURL = dm.CallbackURL
 
-	var ucred *Credential
-	ucred.fromModel(dm.UserCredential)
-	d.UserCredential = ucred
+	for i, im := range dm.Instances {
+		instance := &Instance{}
+		instance.fromModel(im)
+		d.Instances[i] = *instance
+	}
+}
+
+func (i *Instance) fromModel(im models.Instance) {
+	i.URL = im.URL
+	i.State = im.State.String()
+
+	ucred := &Credential{}
+	ucred.fromModel(im.UserCredential)
+	i.UserCredential = ucred
 }
 
 func (c *Credential) fromModel(cm models.Credential) {

@@ -1,4 +1,4 @@
-module github.com/csothen/tmdei-project
+module github.com/csothen/lift
 
 go 1.17
 

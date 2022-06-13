@@ -1,8 +1,8 @@
 package dtos
 
 import (
-	"github.com/csothen/tmdei-project/internal/db"
-	"github.com/csothen/tmdei-project/internal/models"
+	"github.com/csothen/lift/internal/db"
+	"github.com/csothen/lift/internal/models"
 )
 
 type NewUseCaseConfiguration struct {

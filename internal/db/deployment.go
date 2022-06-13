@@ -9,7 +9,7 @@ func (q *querier) GetAllDeployments(ctx context.Context) ([]*Deployment, error) 
 	db := q.db.WithContext(ctx)
 
 	var deployments []*Deployment
-	res := db.Find(&deployments)
+	res := db.Preload("Instances").Find(&deployments)
 	if res.Error != nil {
 		return nil, fmt.Errorf("deployments not found: %w", res.Error)
 	}
@@ -20,7 +20,7 @@ func (q *querier) GetDeploymentByCanonical(ctx context.Context, can string) (*De
 	db := q.db.WithContext(ctx)
 
 	var deployment Deployment
-	res := db.First(&deployment, "canonical = ?", can)
+	res := db.Preload("Instances").First(&deployment, "canonical = ?", can)
 	if res.Error != nil {
 		return nil, fmt.Errorf("deployment not found: %w", res.Error)
 	}
@@ -36,7 +36,7 @@ func (q *querier) CreateDeployment(ctx context.Context, newD Deployment) (*Deplo
 	}
 
 	var deployment Deployment
-	fres := db.First(&deployment, "canonical = ?", newD.Canonical)
+	fres := db.Preload("Instances").First(&deployment, "canonical = ?", newD.Canonical)
 	if fres.Error != nil {
 		return nil, fmt.Errorf("failed to create deployment: %w", fres.Error)
 	}
@@ -52,11 +52,8 @@ func (q *querier) UpdateDeployment(ctx context.Context, updatedD Deployment) err
 		return fmt.Errorf("could not update deployment: %w", fres.Error)
 	}
 
-	foundD.State = updatedD.State
-	foundD.URL = updatedD.URL
+	foundD.Instances = updatedD.Instances
 	foundD.CallbackURL = updatedD.CallbackURL
-	foundD.UserCredential = updatedD.UserCredential
-	foundD.AdminCredential = updatedD.AdminCredential
 
 	db.Save(&foundD)
 	return nil

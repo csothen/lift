@@ -1,10 +1,14 @@
 type Deployment {
   canonical: String!
-  state: String!
   type: String!
-  url: String!
-  userCredential: Credential!
+  instances: [Instance!]!
   callbackURL: String!
+}
+
+type Instance {
+  url: String!
+  state: String!
+  userCredential: Credential!
 }
 
 type Credential {

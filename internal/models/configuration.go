@@ -1,6 +1,6 @@
 package models
 
-import "github.com/csothen/tmdei-project/internal/db"
+import "github.com/csothen/lift/internal/db"
 
 type Configuration struct {
 	UseCases []UseCaseConfiguration `json:"usecases"`
@@ -24,10 +24,10 @@ type PluginInformation struct {
 
 func (c *Configuration) FromDB(dbc *db.Configuration) {
 	c.UseCases = make([]UseCaseConfiguration, len(dbc.UseCases))
-	for _, dbuc := range dbc.UseCases {
-		var uc *UseCaseConfiguration
+	for i, dbuc := range dbc.UseCases {
+		uc := &UseCaseConfiguration{}
 		uc.FromDB(&dbuc)
-		c.UseCases = append(c.UseCases, *uc)
+		c.UseCases[i] = *uc
 	}
 }
 
@@ -44,10 +44,10 @@ func (c *Configuration) ToDB() *db.Configuration {
 func (uc *UseCaseConfiguration) FromDB(dbuc *db.UseCaseConfiguration) {
 	uc.Name = dbuc.Name
 	uc.Services = make([]ServiceConfiguration, len(dbuc.Services))
-	for _, dbs := range dbuc.Services {
-		var s *ServiceConfiguration
+	for i, dbs := range dbuc.Services {
+		s := &ServiceConfiguration{}
 		s.FromDB(&dbs)
-		uc.Services = append(uc.Services, *s)
+		uc.Services[i] = *s
 	}
 }
 
@@ -56,6 +56,7 @@ func (uc *UseCaseConfiguration) ToDB() *db.UseCaseConfiguration {
 		Name:     uc.Name,
 		Services: make([]db.ServiceConfiguration, len(uc.Services)),
 	}
+
 	for i, s := range uc.Services {
 		dbuc.Services[i] = *s.ToDB(uc.Name)
 	}
@@ -66,10 +67,10 @@ func (s *ServiceConfiguration) FromDB(dbs *db.ServiceConfiguration) {
 	s.Type = Type(dbs.Type)
 	s.Version = dbs.Version
 	s.Plugins = make([]PluginInformation, len(dbs.Plugins))
-	for _, dbp := range dbs.Plugins {
-		var p *PluginInformation
+	for i, dbp := range dbs.Plugins {
+		p := &PluginInformation{}
 		p.FromDB(&dbp)
-		s.Plugins = append(s.Plugins, *p)
+		s.Plugins[i] = *p
 	}
 }
 

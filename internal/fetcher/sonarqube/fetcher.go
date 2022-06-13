@@ -8,8 +8,8 @@ import (
 	"path"
 	"sync"
 
-	"github.com/csothen/tmdei-project/internal/fetcher/types"
-	"github.com/csothen/tmdei-project/internal/utils"
+	"github.com/csothen/lift/internal/fetcher/types"
+	"github.com/csothen/lift/internal/utils"
 )
 
 type fetcher struct {
@@ -25,6 +25,13 @@ func NewFetcher() *fetcher {
 }
 
 func (f *fetcher) Reload() error {
+	if f.hasStaticData() {
+		return f.readData()
+	}
+	return f.Fetch()
+}
+
+func (f *fetcher) Fetch() error {
 	psURL, err := url.Parse(pluginsSource)
 	if err != nil {
 		return fmt.Errorf("plugins source is not a valid URL: %w", err)
@@ -45,6 +52,12 @@ func (f *fetcher) Reload() error {
 }
 
 func (f *fetcher) GetPlugin(name, version string) (*types.Plugin, error) {
+	if !f.hasData() {
+		if err := f.Reload(); err != nil {
+			return nil, fmt.Errorf("could not reload plugins data: %w", err)
+		}
+	}
+
 	plugin, ok := f.Plugins[buildPluginKey(name, version)]
 	if !ok {
 		return nil, fmt.Errorf("plugin with name %s and version %s was not found", name, version)
@@ -53,6 +66,12 @@ func (f *fetcher) GetPlugin(name, version string) (*types.Plugin, error) {
 }
 
 func (f *fetcher) ListPlugins() []*types.Plugin {
+	if !f.hasData() {
+		if err := f.Reload(); err != nil {
+			return nil
+		}
+	}
+
 	plugins := make([]*types.Plugin, 0)
 	for _, v := range f.Plugins {
 		plugins = append(plugins, v)
@@ -61,6 +80,12 @@ func (f *fetcher) ListPlugins() []*types.Plugin {
 }
 
 func (f *fetcher) GetApplicationVersion(version string) (*types.AppVersion, error) {
+	if !f.hasData() {
+		if err := f.Reload(); err != nil {
+			return nil, fmt.Errorf("could not reload sonarqube versions data: %w", err)
+		}
+	}
+
 	appVersion, ok := f.SonarqubeVersions[version]
 	if !ok {
 		return nil, fmt.Errorf("sonarqube version %s was not found", version)
@@ -69,11 +94,51 @@ func (f *fetcher) GetApplicationVersion(version string) (*types.AppVersion, erro
 }
 
 func (f *fetcher) ListApplicationVersions() []*types.AppVersion {
+	if !f.hasData() {
+		if err := f.Reload(); err != nil {
+			return nil
+		}
+	}
+
 	versions := make([]*types.AppVersion, 0)
 	for _, v := range f.SonarqubeVersions {
 		versions = append(versions, v)
 	}
 	return versions
+}
+
+func (f *fetcher) hasData() bool {
+	return len(f.Plugins) > 0 && len(f.SonarqubeVersions) > 0
+}
+
+func (f *fetcher) hasStaticData() bool {
+	staticPath, err := utils.BuildStaticFolderPath()
+	if err != nil {
+		return false
+	}
+
+	_, err = os.Stat(path.Join(staticPath, "sonarqube.json"))
+	return err == nil
+}
+
+func (f *fetcher) readData() error {
+	staticPath, err := utils.BuildStaticFolderPath()
+	if err != nil {
+		return fmt.Errorf("could retrieve static folder path: %w", err)
+	}
+
+	file, err := os.Open(path.Join(staticPath, "sonarqube.json"))
+	if err != nil {
+		return fmt.Errorf("could not open static content file: %w", err)
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(f)
+	if err != nil {
+		return fmt.Errorf("could not decode file data: %w", err)
+	}
+	return nil
 }
 
 func (f *fetcher) writeData() error {
@@ -95,7 +160,9 @@ func (f *fetcher) writeData() error {
 	defer file.Close()
 
 	encoder := json.NewEncoder(file)
-	encoder.Encode(f)
-
+	err = encoder.Encode(f)
+	if err != nil {
+		return fmt.Errorf("could not encode fetcher data: %w", err)
+	}
 	return nil
 }

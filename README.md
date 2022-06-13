@@ -36,7 +36,7 @@ The endpoint to change the password is: `POST {url}/api/users/change_password` w
 
 ### Create a new user with enough permissions
 
-The endpoint to create a user is: `POST {url}/api/users/create` with the body: `{ email: "email", local: true, login: "username", name: "name", password: "password" }`
+The endpoint to create a user is: `POST {url}/api/users/create` with the body: `{ login: "username", name: "name", password: "password" }`
 
 Permissions should be set for the user, the endpoint to do that is: `POST {url}/api/permissions/add_user` with the body: `{ login: "username", permission: "permission" }`
 

@@ -1,8 +1,8 @@
 package services
 
 import (
-	"github.com/csothen/tmdei-project/internal/config"
-	"github.com/csothen/tmdei-project/internal/db"
+	"github.com/csothen/lift/internal/config"
+	"github.com/csothen/lift/internal/db"
 )
 
 type Service struct {

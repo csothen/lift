@@ -1,33 +1,48 @@
-- hosts: sonar
+---
+
+- name: Configure Sonarqube
+  hosts: local
+  connection: local
   become: true
   tasks:
-    - name: Add the webupd8team Java PPA
-      apt_repository:
-        repo: ppa:webupd8team/java
-
-    - name: Automatically select the Oracle License
-      shell: echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
-
-    - name: Install Java 8 & PostgreSQL
-      package: name={{item}} state=present
+    - name: Update Repository Cache
+      retries: 2
+      delay: 10
+      apt:
+        update_cache: true
+    
+    - name: Install PostgreSQL
+      apt: 
+        name: "{{ item }}" 
+        state: present
       with_items:
-        - oracle-java8-installer
+        - acl
         - postgresql
         - postgresql-contrib
-        - unzip
+        - libpq-dev
         - python3-psycopg2
-    - name: Create postgres user for SonarQube
+      
+    - name: Install SonarQube Requirements
+      apt: 
+        name: "{{ item }}" 
+        state: present
+      with_items:
+        - openjdk-11-jdk
+        - fontconfig-config 
+        - libfreetype6
+        - zip
+        - unzip
+    
+    - name: Strip carriage returns from scripts to ensure this works from Windows VMs
+      replace:
+        path: "/tmp/files/db-setup.sh"
+        regexp: "[\r]$"
+        replace: ""
+
+    - name: Create postgres user and DB for SonarQube
       become: yes
       become_user: postgres
-      postgresql_user:
-       name: "{{ sonar_db_user }}"
-       password: 'str[\"md5\"] + md5[ {{ sonar_db_pass }} + {{ sonar_db_user }} ]'
-       encrypted: yes
-
-    - name: Create the sonar database
-      postgresql_db:
-       name: "{{ sonar_db_name }}"
-       owner: "{{ sonar_db_user }}"
+      command: "/tmp/files/db-setup.sh {{ sonar_db_pass }} {{ sonar_admin_password }}"
     
     - name: Create the sonar user for running the SonarQube services
       user:
@@ -36,7 +51,7 @@
 
     - name: Download SonarQube
       get_url:
-        url: "https://sonarsource.bintray.com/Distribution/sonarqube/sonarqube-{{ sonar_version }}.zip"
+        url: "{{ sonar_download_url }}"
         dest: "/srv/sonarqube-{{ sonar_version }}.zip"
 
     - name: Extract SonarQube
@@ -53,6 +68,13 @@
         state: link
         owner: sonar
 
+    - name: Configure SonarQube Port
+      lineinfile:
+        path: "/srv/sonarqube/conf/sonar.properties"
+        regexp: "^sonar.web.port="
+        insertafter: "^#sonar.web.port="
+        line: "sonar.web.port=9000"
+
     - name: Configure SonarQube DB username
       lineinfile:
         path: "/srv/sonarqube/conf/sonar.properties"
@@ -66,7 +88,7 @@
         regexp: "^sonar.jdbc.password="
         insertafter: "^#sonar.jdbc.password="
         line: "sonar.jdbc.password={{ sonar_db_pass }}"
-
+    
     - name: Configure SonarQube DB connection string
       lineinfile:
         path: "/srv/sonarqube/conf/sonar.properties"
@@ -81,19 +103,33 @@
         insertafter: "#RUN_AS_USER="
         line: "RUN_AS_USER=sonar"
 
+    - name: Install the sonarqube plugins
+      get_url:
+        url: "{{ item }}"
+        dest: /srv/sonarqube/extensions/plugins
+      with_items: 
+        - "{{ groups['sonar_plugins'] }}"
+
+    - name: Set ElasticSearch requirements
+      sysctl:
+        name: vm.max_map_count
+        value: 524288
+        state: present
+        reload: yes
+
     - name: Copy the SonarQube service configuration file
       copy:
-        src: "../files/sonar/sonarqube.service"
+        src: "/tmp/files/sonarqube.service"
         dest: "/etc/systemd/system/sonarqube.service"
 
     - name: Configure OS security limits for the sonar user
       copy:
-        src: "../files/sonar/sonarqube.limits"
+        src: "/tmp/files/sonarqube.limits"
         dest: "/etc/security/limits.d/99-sonarqube.conf"
 
     - name: Configure kernel level limits for ElasticSearch
       copy:
-        src: "../files/sonar/sonarqube.sysctl"
+        src: "/tmp/files/sonarqube.sysctl"
         dest: "/etc/sysctl.d/99-sonarqube.conf"
 
     - name: Enable the SonarQube service

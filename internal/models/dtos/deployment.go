@@ -16,7 +16,12 @@ type NewService struct {
 }
 
 type CreatedDeployment struct {
-	Canonical string `json:"canonical"`
-	State     string `json:"state"`
-	Type      string `json:"type"`
+	Canonical   string            `json:"canonical"`
+	Instances   []CreatedInstance `json:"instances"`
+	Type        string            `json:"type"`
+	CallbackURL string            `json:"callbackURL"`
+}
+
+type CreatedInstance struct {
+	State string `json:"state"`
 }

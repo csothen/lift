@@ -15,7 +15,10 @@
 # vendor/
 
 # Static files
-static/
+static/*
 
 # Environment files
 .env
+
+# Editor dotfiles
+.vscode

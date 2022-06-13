@@ -1,0 +1,13 @@
+[local]
+localhost
+
+[local:vars]
+sonar_version=($ version $)
+sonar_download_url=($ download_url $)
+sonar_db_name=sonar
+sonar_db_user=sonar
+sonar_db_pass=($ db_pass $)
+sonar_admin_password=($ admin_pass $)
+
+[sonar_plugins]
+($ plugin_urls $)

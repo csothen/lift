@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"github.com/csothen/tmdei-project/internal/db"
+	"github.com/csothen/lift/internal/db"
 	"gorm.io/gorm"
 )
 
@@ -23,14 +23,18 @@ const (
 )
 
 type Deployment struct {
-	Canonical       string     `json:"canonical"`
-	State           State      `json:"state"`
-	Type            Type       `json:"type"`
+	Canonical   string     `json:"canonical"`
+	Instances   []Instance `json:"instances"`
+	Type        Type       `json:"type"`
+	CallbackURL string     `json:"callback_url"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+type Instance struct {
 	URL             string     `json:"url"`
+	State           State      `json:"state"`
 	AdminCredential Credential `json:"admin_cred"`
 	UserCredential  Credential `json:"user_cred"`
-	CallbackURL     string     `json:"callback_url"`
-	CreatedAt       time.Time  `json:"created_at"`
 }
 
 type Credential struct {
@@ -41,33 +45,55 @@ type Credential struct {
 
 func (d *Deployment) FromDB(dbd *db.Deployment) {
 	d.Canonical = dbd.Canonical
-	d.State = State(dbd.State)
 	d.Type = Type(dbd.Type)
-	d.URL = dbd.URL
 	d.CallbackURL = dbd.CallbackURL
 	d.CreatedAt = dbd.CreatedAt
 
-	var aCred Credential
-	aCred.FromDB(&dbd.AdminCredential)
-	d.AdminCredential = aCred
-
-	var uCred Credential
-	uCred.FromDB(&dbd.UserCredential)
-	d.UserCredential = uCred
+	d.Instances = make([]Instance, len(dbd.Instances))
+	for i, dbi := range dbd.Instances {
+		instance := &Instance{}
+		instance.FromDB(&dbi)
+		d.Instances[i] = *instance
+	}
 }
 
 func (d *Deployment) ToDB() *db.Deployment {
-	return &db.Deployment{
-		Canonical:       d.Canonical,
-		State:           uint(d.State),
-		Type:            uint(d.Type),
-		URL:             d.URL,
-		AdminCredential: *d.AdminCredential.ToDB(),
-		UserCredential:  *d.UserCredential.ToDB(),
-		CallbackURL:     d.CallbackURL,
+	dbd := &db.Deployment{
+		Canonical:   d.Canonical,
+		Instances:   make([]db.Instance, len(d.Instances)),
+		Type:        uint(d.Type),
+		CallbackURL: d.CallbackURL,
 		Model: gorm.Model{
 			CreatedAt: d.CreatedAt,
 		},
+	}
+
+	for i, instance := range d.Instances {
+		dbd.Instances[i] = *instance.ToDB(d.Canonical)
+	}
+	return dbd
+}
+
+func (i *Instance) FromDB(dbi *db.Instance) {
+	i.URL = dbi.URL
+	i.State = State(dbi.State)
+
+	aCred := Credential{}
+	aCred.FromDB(&dbi.AdminCredential)
+	i.AdminCredential = aCred
+
+	uCred := Credential{}
+	uCred.FromDB(&dbi.UserCredential)
+	i.UserCredential = uCred
+}
+
+func (i *Instance) ToDB(dcan string) *db.Instance {
+	return &db.Instance{
+		DeploymentCanonical: dcan,
+		URL:                 i.URL,
+		State:               uint(i.State),
+		AdminCredential:     *i.AdminCredential.ToDB(),
+		UserCredential:      *i.UserCredential.ToDB(),
 	}
 }
 

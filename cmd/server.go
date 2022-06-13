@@ -6,16 +6,16 @@ import (
 	"net/http"
 
 	"github.com/csothen/env"
-	"github.com/csothen/tmdei-project/internal/db"
-	"github.com/csothen/tmdei-project/internal/graph"
-	"github.com/csothen/tmdei-project/internal/middlewares"
-	"github.com/csothen/tmdei-project/internal/services"
-	"github.com/csothen/tmdei-project/internal/utils"
+	"github.com/csothen/lift/internal/db"
+	"github.com/csothen/lift/internal/graph"
+	"github.com/csothen/lift/internal/middlewares"
+	"github.com/csothen/lift/internal/services"
+	"github.com/csothen/lift/internal/utils"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/csothen/tmdei-project/internal/config"
+	"github.com/csothen/lift/internal/config"
 )
 
 var serverCmd = &cobra.Command{

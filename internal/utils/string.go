@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-func BuildDeploymentCanonical(usecase, service string, number int) string {
-	hash := md5.Sum([]byte(fmt.Sprintf("%d%s", number, time.Now())))
+func BuildDeploymentCanonical(usecase, service string) string {
+	hash := md5.Sum([]byte(time.Now().String()))
 	return fmt.Sprintf("%s-%s-%x", usecase, service, hash)
 }
 
@@ -18,7 +18,7 @@ func BuildDeploymentFolderPath(canonical string) (string, error) {
 }
 
 func BuildStaticFolderPath() (string, error) {
-	return pathFromProjectRoot("static")
+	return pathFromProjectRoot("static", "data")
 }
 
 func BuildTemplatesFolderPath() (string, error) {

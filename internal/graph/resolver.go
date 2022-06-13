@@ -1,6 +1,6 @@
 package graph
 
-import "github.com/csothen/tmdei-project/internal/services"
+import "github.com/csothen/lift/internal/services"
 
 // This file will not be regenerated automatically.
 //

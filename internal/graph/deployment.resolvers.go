@@ -11,7 +11,7 @@ import (
 func (r *mutationResolver) CreateDeployments(ctx context.Context, input NewDeployments) ([]Deployment, error) {
 	deployments, _, errors := r.s.CreateDeployment(ctx, input.toDTO())
 	if len(errors) > 0 {
-		fullErr := fmt.Errorf("failed to create the deployment:")
+		fullErr := fmt.Errorf("failed to create the deployment: ")
 		for _, err := range errors {
 			fullErr = fmt.Errorf("%s\n%w", fullErr, err)
 		}
@@ -20,11 +20,18 @@ func (r *mutationResolver) CreateDeployments(ctx context.Context, input NewDeplo
 
 	nds := make([]Deployment, len(deployments))
 	for i, deployment := range deployments {
-		nds[i] = Deployment{
+		nd := Deployment{
 			Canonical: deployment.Canonical,
-			State:     deployment.State,
+			Instances: make([]Instance, len(deployment.Instances)),
 			Type:      deployment.Type,
 		}
+
+		for j, instance := range deployment.Instances {
+			nd.Instances[j] = Instance{
+				State: instance.State,
+			}
+		}
+		nds[i] = nd
 	}
 	return nds, nil
 }
@@ -34,7 +41,7 @@ func (r *queryResolver) Deployments(ctx context.Context) ([]Deployment, error) {
 
 	ds := make([]Deployment, len(deployments))
 	for i, deployment := range deployments {
-		var d *Deployment
+		d := &Deployment{}
 		d.fromModel(*deployment)
 		ds[i] = *d
 	}
@@ -47,7 +54,7 @@ func (r *queryResolver) FindDeployment(ctx context.Context, canonical string) (*
 		return nil, err
 	}
 
-	var d *Deployment
+	d := &Deployment{}
 	d.fromModel(*deployment)
 	return d, nil
 }

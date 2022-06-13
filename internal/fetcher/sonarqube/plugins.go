@@ -10,21 +10,23 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/csothen/tmdei-project/internal/fetcher/types"
+	"github.com/csothen/lift/internal/fetcher/types"
 	"golang.org/x/net/html"
 )
 
 const pluginsSource string = "https://update.sonarsource.org/"
 
 type pluginData struct {
-	Name     string              `json:"name"`
-	Key      string              `json:"key"`
-	Versions []pluginVersionData `json:"versions"`
+	Name         string              `json:"name"`
+	Key          string              `json:"key"`
+	Versions     []pluginVersionData `json:"versions"`
+	IsCommercial bool                `json:"isSonarSourceCommercial"`
 }
 
 type pluginVersionData struct {
-	Version string `json:"version"`
-	URL     string `json:"downloadURL"`
+	Version       string `json:"version"`
+	Compatibility string `json:"compatibility"`
+	URL           string `json:"downloadURL"`
 }
 
 func (f *fetcher) fetchPlugins(wg *sync.WaitGroup, psURL *url.URL) {
@@ -109,6 +111,10 @@ func (f *fetcher) fetchPluginInformation(wg *sync.WaitGroup, m *sync.Mutex, urlT
 	err = json.Unmarshal(body, &pd)
 	if err != nil {
 		log.Println(err)
+		return
+	}
+
+	if pd.IsCommercial {
 		return
 	}
 

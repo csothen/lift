@@ -19,12 +19,16 @@ type Credential struct {
 }
 
 type Deployment struct {
-	Canonical      string      `json:"canonical"`
-	State          string      `json:"state"`
-	Type           string      `json:"type"`
+	Canonical   string     `json:"canonical"`
+	Type        string     `json:"type"`
+	Instances   []Instance `json:"instances"`
+	CallbackURL string     `json:"callbackURL"`
+}
+
+type Instance struct {
 	URL            string      `json:"url"`
+	State          string      `json:"state"`
 	UserCredential *Credential `json:"userCredential"`
-	CallbackURL    string      `json:"callbackURL"`
 }
 
 type NewDeployment struct {

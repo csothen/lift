@@ -53,10 +53,14 @@ type ComplexityRoot struct {
 	}
 
 	Deployment struct {
-		CallbackURL    func(childComplexity int) int
-		Canonical      func(childComplexity int) int
+		CallbackURL func(childComplexity int) int
+		Canonical   func(childComplexity int) int
+		Instances   func(childComplexity int) int
+		Type        func(childComplexity int) int
+	}
+
+	Instance struct {
 		State          func(childComplexity int) int
-		Type           func(childComplexity int) int
 		URL            func(childComplexity int) int
 		UserCredential func(childComplexity int) int
 	}
@@ -162,12 +166,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Deployment.Canonical(childComplexity), true
 
-	case "Deployment.state":
-		if e.complexity.Deployment.State == nil {
+	case "Deployment.instances":
+		if e.complexity.Deployment.Instances == nil {
 			break
 		}
 
-		return e.complexity.Deployment.State(childComplexity), true
+		return e.complexity.Deployment.Instances(childComplexity), true
 
 	case "Deployment.type":
 		if e.complexity.Deployment.Type == nil {
@@ -176,19 +180,26 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Deployment.Type(childComplexity), true
 
-	case "Deployment.url":
-		if e.complexity.Deployment.URL == nil {
+	case "Instance.state":
+		if e.complexity.Instance.State == nil {
 			break
 		}
 
-		return e.complexity.Deployment.URL(childComplexity), true
+		return e.complexity.Instance.State(childComplexity), true
 
-	case "Deployment.userCredential":
-		if e.complexity.Deployment.UserCredential == nil {
+	case "Instance.url":
+		if e.complexity.Instance.URL == nil {
 			break
 		}
 
-		return e.complexity.Deployment.UserCredential(childComplexity), true
+		return e.complexity.Instance.URL(childComplexity), true
+
+	case "Instance.userCredential":
+		if e.complexity.Instance.UserCredential == nil {
+			break
+		}
+
+		return e.complexity.Instance.UserCredential(childComplexity), true
 
 	case "Mutation.addServiceConfiguration":
 		if e.complexity.Mutation.AddServiceConfiguration == nil {
@@ -438,11 +449,15 @@ extend type Mutation {
 }`, BuiltIn: false},
 	{Name: "internal/graph/schema/deployment.gql", Input: `type Deployment {
   canonical: String!
-  state: String!
   type: String!
-  url: String!
-  userCredential: Credential!
+  instances: [Instance!]!
   callbackURL: String!
+}
+
+type Instance {
+  url: String!
+  state: String!
+  userCredential: Credential!
 }
 
 type Credential {
@@ -496,7 +511,7 @@ func (ec *executionContext) field_Mutation_addServiceConfiguration_args(ctx cont
 	var arg0 NewServiceConfiguration
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNNewServiceConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewServiceConfiguration(ctx, tmp)
+		arg0, err = ec.unmarshalNNewServiceConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewServiceConfiguration(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -511,7 +526,7 @@ func (ec *executionContext) field_Mutation_addUseCaseConfiguration_args(ctx cont
 	var arg0 NewUseCaseConfiguration
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNNewUseCaseConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewUseCaseConfiguration(ctx, tmp)
+		arg0, err = ec.unmarshalNNewUseCaseConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewUseCaseConfiguration(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -526,7 +541,7 @@ func (ec *executionContext) field_Mutation_createDeployments_args(ctx context.Co
 	var arg0 NewDeployments
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNNewDeployments2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewDeployments(ctx, tmp)
+		arg0, err = ec.unmarshalNNewDeployments2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewDeployments(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -674,7 +689,7 @@ func (ec *executionContext) _Configuration_usecases(ctx context.Context, field g
 	}
 	res := resTmp.([]UseCaseConfiguration)
 	fc.Result = res
-	return ec.marshalNUseCaseConfiguration2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐUseCaseConfigurationᚄ(ctx, field.Selections, res)
+	return ec.marshalNUseCaseConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐUseCaseConfigurationᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Credential_username(ctx context.Context, field graphql.CollectedField, obj *Credential) (ret graphql.Marshaler) {
@@ -817,41 +832,6 @@ func (ec *executionContext) _Deployment_canonical(ctx context.Context, field gra
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Deployment_state(ctx context.Context, field graphql.CollectedField, obj *Deployment) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:     "Deployment",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.State, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
 func (ec *executionContext) _Deployment_type(ctx context.Context, field graphql.CollectedField, obj *Deployment) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -887,7 +867,7 @@ func (ec *executionContext) _Deployment_type(ctx context.Context, field graphql.
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Deployment_url(ctx context.Context, field graphql.CollectedField, obj *Deployment) (ret graphql.Marshaler) {
+func (ec *executionContext) _Deployment_instances(ctx context.Context, field graphql.CollectedField, obj *Deployment) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -905,7 +885,7 @@ func (ec *executionContext) _Deployment_url(ctx context.Context, field graphql.C
 	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.URL, nil
+		return obj.Instances, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -917,44 +897,9 @@ func (ec *executionContext) _Deployment_url(ctx context.Context, field graphql.C
 		}
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.([]Instance)
 	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _Deployment_userCredential(ctx context.Context, field graphql.CollectedField, obj *Deployment) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:     "Deployment",
-		Field:      field,
-		Args:       nil,
-		IsMethod:   false,
-		IsResolver: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.UserCredential, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*Credential)
-	fc.Result = res
-	return ec.marshalNCredential2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐCredential(ctx, field.Selections, res)
+	return ec.marshalNInstance2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐInstanceᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Deployment_callbackURL(ctx context.Context, field graphql.CollectedField, obj *Deployment) (ret graphql.Marshaler) {
@@ -990,6 +935,111 @@ func (ec *executionContext) _Deployment_callbackURL(ctx context.Context, field g
 	res := resTmp.(string)
 	fc.Result = res
 	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Instance_url(ctx context.Context, field graphql.CollectedField, obj *Instance) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Instance",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.URL, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Instance_state(ctx context.Context, field graphql.CollectedField, obj *Instance) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Instance",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.State, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Instance_userCredential(ctx context.Context, field graphql.CollectedField, obj *Instance) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Instance",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.UserCredential, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*Credential)
+	fc.Result = res
+	return ec.marshalNCredential2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐCredential(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_addUseCaseConfiguration(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1031,7 +1081,7 @@ func (ec *executionContext) _Mutation_addUseCaseConfiguration(ctx context.Contex
 	}
 	res := resTmp.(*Configuration)
 	fc.Result = res
-	return ec.marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐConfiguration(ctx, field.Selections, res)
+	return ec.marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐConfiguration(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_addServiceConfiguration(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1073,7 +1123,7 @@ func (ec *executionContext) _Mutation_addServiceConfiguration(ctx context.Contex
 	}
 	res := resTmp.(*Configuration)
 	fc.Result = res
-	return ec.marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐConfiguration(ctx, field.Selections, res)
+	return ec.marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐConfiguration(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createDeployments(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1115,7 +1165,7 @@ func (ec *executionContext) _Mutation_createDeployments(ctx context.Context, fie
 	}
 	res := resTmp.([]Deployment)
 	fc.Result = res
-	return ec.marshalNDeployment2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐDeploymentᚄ(ctx, field.Selections, res)
+	return ec.marshalNDeployment2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐDeploymentᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _PluginConfiguration_name(ctx context.Context, field graphql.CollectedField, obj *PluginConfiguration) (ret graphql.Marshaler) {
@@ -1220,7 +1270,7 @@ func (ec *executionContext) _Query_configuration(ctx context.Context, field grap
 	}
 	res := resTmp.(*Configuration)
 	fc.Result = res
-	return ec.marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐConfiguration(ctx, field.Selections, res)
+	return ec.marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐConfiguration(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_findUseCaseConfiguration(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1262,7 +1312,7 @@ func (ec *executionContext) _Query_findUseCaseConfiguration(ctx context.Context,
 	}
 	res := resTmp.(*UseCaseConfiguration)
 	fc.Result = res
-	return ec.marshalNUseCaseConfiguration2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐUseCaseConfiguration(ctx, field.Selections, res)
+	return ec.marshalNUseCaseConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐUseCaseConfiguration(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_findServiceConfiguration(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1304,7 +1354,7 @@ func (ec *executionContext) _Query_findServiceConfiguration(ctx context.Context,
 	}
 	res := resTmp.(*ServiceConfiguration)
 	fc.Result = res
-	return ec.marshalNServiceConfiguration2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐServiceConfiguration(ctx, field.Selections, res)
+	return ec.marshalNServiceConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceConfiguration(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_deployments(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1339,7 +1389,7 @@ func (ec *executionContext) _Query_deployments(ctx context.Context, field graphq
 	}
 	res := resTmp.([]Deployment)
 	fc.Result = res
-	return ec.marshalNDeployment2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐDeploymentᚄ(ctx, field.Selections, res)
+	return ec.marshalNDeployment2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐDeploymentᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_findDeployment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1381,7 +1431,7 @@ func (ec *executionContext) _Query_findDeployment(ctx context.Context, field gra
 	}
 	res := resTmp.(*Deployment)
 	fc.Result = res
-	return ec.marshalNDeployment2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐDeployment(ctx, field.Selections, res)
+	return ec.marshalNDeployment2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐDeployment(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1487,7 +1537,7 @@ func (ec *executionContext) _ServiceConfiguration_type(ctx context.Context, fiel
 	}
 	res := resTmp.(ServiceType)
 	fc.Result = res
-	return ec.marshalNServiceType2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐServiceType(ctx, field.Selections, res)
+	return ec.marshalNServiceType2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceType(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _ServiceConfiguration_version(ctx context.Context, field graphql.CollectedField, obj *ServiceConfiguration) (ret graphql.Marshaler) {
@@ -1557,7 +1607,7 @@ func (ec *executionContext) _ServiceConfiguration_plugins(ctx context.Context, f
 	}
 	res := resTmp.([]PluginConfiguration)
 	fc.Result = res
-	return ec.marshalNPluginConfiguration2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐPluginConfigurationᚄ(ctx, field.Selections, res)
+	return ec.marshalNPluginConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐPluginConfigurationᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UseCaseConfiguration_name(ctx context.Context, field graphql.CollectedField, obj *UseCaseConfiguration) (ret graphql.Marshaler) {
@@ -1627,7 +1677,7 @@ func (ec *executionContext) _UseCaseConfiguration_services(ctx context.Context, 
 	}
 	res := resTmp.([]ServiceConfiguration)
 	fc.Result = res
-	return ec.marshalNServiceConfiguration2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐServiceConfigurationᚄ(ctx, field.Selections, res)
+	return ec.marshalNServiceConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceConfigurationᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -2837,7 +2887,7 @@ func (ec *executionContext) unmarshalInputNewDeployment(ctx context.Context, obj
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("services"))
-			it.Services, err = ec.unmarshalNNewService2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewServiceᚄ(ctx, v)
+			it.Services, err = ec.unmarshalNNewService2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewServiceᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -2860,7 +2910,7 @@ func (ec *executionContext) unmarshalInputNewDeployments(ctx context.Context, ob
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("deployments"))
-			it.Deployments, err = ec.unmarshalNNewDeployment2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewDeploymentᚄ(ctx, v)
+			it.Deployments, err = ec.unmarshalNNewDeployment2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewDeploymentᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -2961,7 +3011,7 @@ func (ec *executionContext) unmarshalInputNewServiceConfiguration(ctx context.Co
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
-			it.Type, err = ec.unmarshalNServiceType2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐServiceType(ctx, v)
+			it.Type, err = ec.unmarshalNServiceType2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceType(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -2977,7 +3027,7 @@ func (ec *executionContext) unmarshalInputNewServiceConfiguration(ctx context.Co
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("plugins"))
-			it.Plugins, err = ec.unmarshalNNewPluginConfiguration2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewPluginConfigurationᚄ(ctx, v)
+			it.Plugins, err = ec.unmarshalNNewPluginConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewPluginConfigurationᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -3008,7 +3058,7 @@ func (ec *executionContext) unmarshalInputNewUseCaseConfiguration(ctx context.Co
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("services"))
-			it.Services, err = ec.unmarshalNNewServiceConfiguration2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewServiceConfigurationᚄ(ctx, v)
+			it.Services, err = ec.unmarshalNNewServiceConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewServiceConfigurationᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -3128,16 +3178,6 @@ func (ec *executionContext) _Deployment(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "state":
-			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Deployment_state(ctx, field, obj)
-			}
-
-			out.Values[i] = innerFunc(ctx)
-
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
 		case "type":
 			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Deployment_type(ctx, field, obj)
@@ -3148,19 +3188,9 @@ func (ec *executionContext) _Deployment(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "url":
+		case "instances":
 			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Deployment_url(ctx, field, obj)
-			}
-
-			out.Values[i] = innerFunc(ctx)
-
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		case "userCredential":
-			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Deployment_userCredential(ctx, field, obj)
+				return ec._Deployment_instances(ctx, field, obj)
 			}
 
 			out.Values[i] = innerFunc(ctx)
@@ -3171,6 +3201,57 @@ func (ec *executionContext) _Deployment(ctx context.Context, sel ast.SelectionSe
 		case "callbackURL":
 			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Deployment_callbackURL(ctx, field, obj)
+			}
+
+			out.Values[i] = innerFunc(ctx)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var instanceImplementors = []string{"Instance"}
+
+func (ec *executionContext) _Instance(ctx context.Context, sel ast.SelectionSet, obj *Instance) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, instanceImplementors)
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Instance")
+		case "url":
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Instance_url(ctx, field, obj)
+			}
+
+			out.Values[i] = innerFunc(ctx)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "state":
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Instance_state(ctx, field, obj)
+			}
+
+			out.Values[i] = innerFunc(ctx)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "userCredential":
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Instance_userCredential(ctx, field, obj)
 			}
 
 			out.Values[i] = innerFunc(ctx)
@@ -3979,11 +4060,11 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐConfiguration(ctx context.Context, sel ast.SelectionSet, v Configuration) graphql.Marshaler {
+func (ec *executionContext) marshalNConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐConfiguration(ctx context.Context, sel ast.SelectionSet, v Configuration) graphql.Marshaler {
 	return ec._Configuration(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐConfiguration(ctx context.Context, sel ast.SelectionSet, v *Configuration) graphql.Marshaler {
+func (ec *executionContext) marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐConfiguration(ctx context.Context, sel ast.SelectionSet, v *Configuration) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -3993,7 +4074,7 @@ func (ec *executionContext) marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋtm
 	return ec._Configuration(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCredential2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐCredential(ctx context.Context, sel ast.SelectionSet, v *Credential) graphql.Marshaler {
+func (ec *executionContext) marshalNCredential2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐCredential(ctx context.Context, sel ast.SelectionSet, v *Credential) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -4003,11 +4084,11 @@ func (ec *executionContext) marshalNCredential2ᚖgithubᚗcomᚋcsothenᚋtmdei
 	return ec._Credential(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNDeployment2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐDeployment(ctx context.Context, sel ast.SelectionSet, v Deployment) graphql.Marshaler {
+func (ec *executionContext) marshalNDeployment2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐDeployment(ctx context.Context, sel ast.SelectionSet, v Deployment) graphql.Marshaler {
 	return ec._Deployment(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeployment2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐDeploymentᚄ(ctx context.Context, sel ast.SelectionSet, v []Deployment) graphql.Marshaler {
+func (ec *executionContext) marshalNDeployment2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐDeploymentᚄ(ctx context.Context, sel ast.SelectionSet, v []Deployment) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -4031,7 +4112,7 @@ func (ec *executionContext) marshalNDeployment2ᚕgithubᚗcomᚋcsothenᚋtmdei
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNDeployment2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐDeployment(ctx, sel, v[i])
+			ret[i] = ec.marshalNDeployment2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐDeployment(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -4051,7 +4132,7 @@ func (ec *executionContext) marshalNDeployment2ᚕgithubᚗcomᚋcsothenᚋtmdei
 	return ret
 }
 
-func (ec *executionContext) marshalNDeployment2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐDeployment(ctx context.Context, sel ast.SelectionSet, v *Deployment) graphql.Marshaler {
+func (ec *executionContext) marshalNDeployment2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐDeployment(ctx context.Context, sel ast.SelectionSet, v *Deployment) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -4061,12 +4142,60 @@ func (ec *executionContext) marshalNDeployment2ᚖgithubᚗcomᚋcsothenᚋtmdei
 	return ec._Deployment(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNNewDeployment2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewDeployment(ctx context.Context, v interface{}) (NewDeployment, error) {
+func (ec *executionContext) marshalNInstance2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐInstance(ctx context.Context, sel ast.SelectionSet, v Instance) graphql.Marshaler {
+	return ec._Instance(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNInstance2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐInstanceᚄ(ctx context.Context, sel ast.SelectionSet, v []Instance) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNInstance2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐInstance(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNNewDeployment2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewDeployment(ctx context.Context, v interface{}) (NewDeployment, error) {
 	res, err := ec.unmarshalInputNewDeployment(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNNewDeployment2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewDeploymentᚄ(ctx context.Context, v interface{}) ([]NewDeployment, error) {
+func (ec *executionContext) unmarshalNNewDeployment2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewDeploymentᚄ(ctx context.Context, v interface{}) ([]NewDeployment, error) {
 	var vSlice []interface{}
 	if v != nil {
 		vSlice = graphql.CoerceList(v)
@@ -4075,7 +4204,7 @@ func (ec *executionContext) unmarshalNNewDeployment2ᚕgithubᚗcomᚋcsothenᚋ
 	res := make([]NewDeployment, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNNewDeployment2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewDeployment(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNNewDeployment2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewDeployment(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -4083,17 +4212,17 @@ func (ec *executionContext) unmarshalNNewDeployment2ᚕgithubᚗcomᚋcsothenᚋ
 	return res, nil
 }
 
-func (ec *executionContext) unmarshalNNewDeployments2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewDeployments(ctx context.Context, v interface{}) (NewDeployments, error) {
+func (ec *executionContext) unmarshalNNewDeployments2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewDeployments(ctx context.Context, v interface{}) (NewDeployments, error) {
 	res, err := ec.unmarshalInputNewDeployments(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNNewPluginConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewPluginConfiguration(ctx context.Context, v interface{}) (NewPluginConfiguration, error) {
+func (ec *executionContext) unmarshalNNewPluginConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewPluginConfiguration(ctx context.Context, v interface{}) (NewPluginConfiguration, error) {
 	res, err := ec.unmarshalInputNewPluginConfiguration(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNNewPluginConfiguration2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewPluginConfigurationᚄ(ctx context.Context, v interface{}) ([]NewPluginConfiguration, error) {
+func (ec *executionContext) unmarshalNNewPluginConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewPluginConfigurationᚄ(ctx context.Context, v interface{}) ([]NewPluginConfiguration, error) {
 	var vSlice []interface{}
 	if v != nil {
 		vSlice = graphql.CoerceList(v)
@@ -4102,7 +4231,7 @@ func (ec *executionContext) unmarshalNNewPluginConfiguration2ᚕgithubᚗcomᚋc
 	res := make([]NewPluginConfiguration, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNNewPluginConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewPluginConfiguration(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNNewPluginConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewPluginConfiguration(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -4110,12 +4239,12 @@ func (ec *executionContext) unmarshalNNewPluginConfiguration2ᚕgithubᚗcomᚋc
 	return res, nil
 }
 
-func (ec *executionContext) unmarshalNNewService2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewService(ctx context.Context, v interface{}) (NewService, error) {
+func (ec *executionContext) unmarshalNNewService2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewService(ctx context.Context, v interface{}) (NewService, error) {
 	res, err := ec.unmarshalInputNewService(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNNewService2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewServiceᚄ(ctx context.Context, v interface{}) ([]NewService, error) {
+func (ec *executionContext) unmarshalNNewService2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewServiceᚄ(ctx context.Context, v interface{}) ([]NewService, error) {
 	var vSlice []interface{}
 	if v != nil {
 		vSlice = graphql.CoerceList(v)
@@ -4124,7 +4253,7 @@ func (ec *executionContext) unmarshalNNewService2ᚕgithubᚗcomᚋcsothenᚋtmd
 	res := make([]NewService, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNNewService2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewService(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNNewService2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewService(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -4132,12 +4261,12 @@ func (ec *executionContext) unmarshalNNewService2ᚕgithubᚗcomᚋcsothenᚋtmd
 	return res, nil
 }
 
-func (ec *executionContext) unmarshalNNewServiceConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewServiceConfiguration(ctx context.Context, v interface{}) (NewServiceConfiguration, error) {
+func (ec *executionContext) unmarshalNNewServiceConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewServiceConfiguration(ctx context.Context, v interface{}) (NewServiceConfiguration, error) {
 	res, err := ec.unmarshalInputNewServiceConfiguration(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNNewServiceConfiguration2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewServiceConfigurationᚄ(ctx context.Context, v interface{}) ([]NewServiceConfiguration, error) {
+func (ec *executionContext) unmarshalNNewServiceConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewServiceConfigurationᚄ(ctx context.Context, v interface{}) ([]NewServiceConfiguration, error) {
 	var vSlice []interface{}
 	if v != nil {
 		vSlice = graphql.CoerceList(v)
@@ -4146,7 +4275,7 @@ func (ec *executionContext) unmarshalNNewServiceConfiguration2ᚕgithubᚗcomᚋ
 	res := make([]NewServiceConfiguration, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNNewServiceConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewServiceConfiguration(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNNewServiceConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewServiceConfiguration(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -4154,16 +4283,16 @@ func (ec *executionContext) unmarshalNNewServiceConfiguration2ᚕgithubᚗcomᚋ
 	return res, nil
 }
 
-func (ec *executionContext) unmarshalNNewUseCaseConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐNewUseCaseConfiguration(ctx context.Context, v interface{}) (NewUseCaseConfiguration, error) {
+func (ec *executionContext) unmarshalNNewUseCaseConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewUseCaseConfiguration(ctx context.Context, v interface{}) (NewUseCaseConfiguration, error) {
 	res, err := ec.unmarshalInputNewUseCaseConfiguration(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNPluginConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐPluginConfiguration(ctx context.Context, sel ast.SelectionSet, v PluginConfiguration) graphql.Marshaler {
+func (ec *executionContext) marshalNPluginConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐPluginConfiguration(ctx context.Context, sel ast.SelectionSet, v PluginConfiguration) graphql.Marshaler {
 	return ec._PluginConfiguration(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNPluginConfiguration2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐPluginConfigurationᚄ(ctx context.Context, sel ast.SelectionSet, v []PluginConfiguration) graphql.Marshaler {
+func (ec *executionContext) marshalNPluginConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐPluginConfigurationᚄ(ctx context.Context, sel ast.SelectionSet, v []PluginConfiguration) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -4187,7 +4316,7 @@ func (ec *executionContext) marshalNPluginConfiguration2ᚕgithubᚗcomᚋcsothe
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNPluginConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐPluginConfiguration(ctx, sel, v[i])
+			ret[i] = ec.marshalNPluginConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐPluginConfiguration(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -4207,11 +4336,11 @@ func (ec *executionContext) marshalNPluginConfiguration2ᚕgithubᚗcomᚋcsothe
 	return ret
 }
 
-func (ec *executionContext) marshalNServiceConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐServiceConfiguration(ctx context.Context, sel ast.SelectionSet, v ServiceConfiguration) graphql.Marshaler {
+func (ec *executionContext) marshalNServiceConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceConfiguration(ctx context.Context, sel ast.SelectionSet, v ServiceConfiguration) graphql.Marshaler {
 	return ec._ServiceConfiguration(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNServiceConfiguration2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐServiceConfigurationᚄ(ctx context.Context, sel ast.SelectionSet, v []ServiceConfiguration) graphql.Marshaler {
+func (ec *executionContext) marshalNServiceConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceConfigurationᚄ(ctx context.Context, sel ast.SelectionSet, v []ServiceConfiguration) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -4235,7 +4364,7 @@ func (ec *executionContext) marshalNServiceConfiguration2ᚕgithubᚗcomᚋcsoth
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNServiceConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐServiceConfiguration(ctx, sel, v[i])
+			ret[i] = ec.marshalNServiceConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceConfiguration(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -4255,7 +4384,7 @@ func (ec *executionContext) marshalNServiceConfiguration2ᚕgithubᚗcomᚋcsoth
 	return ret
 }
 
-func (ec *executionContext) marshalNServiceConfiguration2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐServiceConfiguration(ctx context.Context, sel ast.SelectionSet, v *ServiceConfiguration) graphql.Marshaler {
+func (ec *executionContext) marshalNServiceConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceConfiguration(ctx context.Context, sel ast.SelectionSet, v *ServiceConfiguration) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -4265,13 +4394,13 @@ func (ec *executionContext) marshalNServiceConfiguration2ᚖgithubᚗcomᚋcsoth
 	return ec._ServiceConfiguration(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNServiceType2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐServiceType(ctx context.Context, v interface{}) (ServiceType, error) {
+func (ec *executionContext) unmarshalNServiceType2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceType(ctx context.Context, v interface{}) (ServiceType, error) {
 	var res ServiceType
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNServiceType2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐServiceType(ctx context.Context, sel ast.SelectionSet, v ServiceType) graphql.Marshaler {
+func (ec *executionContext) marshalNServiceType2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceType(ctx context.Context, sel ast.SelectionSet, v ServiceType) graphql.Marshaler {
 	return v
 }
 
@@ -4290,11 +4419,11 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
-func (ec *executionContext) marshalNUseCaseConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐUseCaseConfiguration(ctx context.Context, sel ast.SelectionSet, v UseCaseConfiguration) graphql.Marshaler {
+func (ec *executionContext) marshalNUseCaseConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐUseCaseConfiguration(ctx context.Context, sel ast.SelectionSet, v UseCaseConfiguration) graphql.Marshaler {
 	return ec._UseCaseConfiguration(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUseCaseConfiguration2ᚕgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐUseCaseConfigurationᚄ(ctx context.Context, sel ast.SelectionSet, v []UseCaseConfiguration) graphql.Marshaler {
+func (ec *executionContext) marshalNUseCaseConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐUseCaseConfigurationᚄ(ctx context.Context, sel ast.SelectionSet, v []UseCaseConfiguration) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -4318,7 +4447,7 @@ func (ec *executionContext) marshalNUseCaseConfiguration2ᚕgithubᚗcomᚋcsoth
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNUseCaseConfiguration2githubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐUseCaseConfiguration(ctx, sel, v[i])
+			ret[i] = ec.marshalNUseCaseConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐUseCaseConfiguration(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -4338,7 +4467,7 @@ func (ec *executionContext) marshalNUseCaseConfiguration2ᚕgithubᚗcomᚋcsoth
 	return ret
 }
 
-func (ec *executionContext) marshalNUseCaseConfiguration2ᚖgithubᚗcomᚋcsothenᚋtmdeiᚑprojectᚋinternalᚋgraphᚐUseCaseConfiguration(ctx context.Context, sel ast.SelectionSet, v *UseCaseConfiguration) graphql.Marshaler {
+func (ec *executionContext) marshalNUseCaseConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐUseCaseConfiguration(ctx context.Context, sel ast.SelectionSet, v *UseCaseConfiguration) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")

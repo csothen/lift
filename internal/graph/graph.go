@@ -9,7 +9,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/csothen/tmdei-project/internal/services"
+	"github.com/csothen/lift/internal/services"
 )
 
 func NewHandler(s *services.Service) http.Handler {
