@@ -11,11 +11,11 @@ generate-all: gqlgen
 
 teardown:
 	@docker-compose down
-	@-./scripts/teardown.sh ${APP_NAME}
+	@-./scripts/teardown.sh lift
 
 start: teardown generate-all build-sql-init
 	@docker-compose --env-file ./.env build --no-cache
 	@docker-compose --env-file ./.env up
 
 db-cli:
-	@docker exec -it ${APP_NAME}_db psql -d ${DB_NAME} -U ${DB_USER} -h localhost -p 5432
+	@docker exec -it lift_db psql -d ${DB_NAME} -U ${DB_USER} -h localhost -p 5432

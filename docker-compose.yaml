@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   server:
-    container_name: ${APP_NAME}_server
+    container_name: lift_server
     restart: always
     network_mode: "host"
     build:
@@ -16,7 +16,7 @@ services:
       - psql_db
   
   psql_db:
-    container_name: ${APP_NAME}_db
+    container_name: lift_db
     build:
       context: db
       dockerfile: Dockerfile

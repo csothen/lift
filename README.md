@@ -1,51 +1,42 @@
-# tmdei-project
-Master's Thesis Project
+# lift
+Lift is a service that lifts infrastructure on demand, more specifically code analysis tools.
 
-## Context
+## Supported Tools
 
-1. Create Sonarqube instance
-2. Download all plugins that were requested
-3. Move them to the plugins folder of the sonarqube instance
-4. Delete them from the local machine
-5. Login as admin
-6. Change the admin password
-7. Persist that information so that it can be used when doing work on the instance
-8. Create a new user with enough permissions
-9. Generate user token
-10. Return the instance URL and the token to access it
+Currently lift supports the following analysis tools:
+- Sonarqube
 
-### Create Sonarqube instance
+## Getting started
 
-In order to create the instance we can make use of [docker](https://hub.docker.com/_/sonarqube/)
+In order for the application to work on a machine there are a few things that need to be in place.
 
-We create a template Docker compose that can be then replaced by the details wanted by the user such as the specific version and the database to use
+### Requirements
 
-### Download all plugins that were requested
+There are a set of requirements that need to be fullfilled in order for the service to work:
+- Go installed
+- Make installed
+- Docker installed
+- Docker Compose installed
+- A private and public SSH key located in `lift/static/keys` called lift and lift.pub
+- An AWS account (note that non free instances will be used on AWS)
+- A `.env` file in the root of the project containing the following:
+  - AWS_ACCESS_KEY_ID=< your-aws-access-key-id >
+  - AWS_SECRET_ACCESS_KEY=< your-aws-secret-access-key >
+  - DB_NAME=< database-name >
+  - DB_USER=< database-username >
+  - DB_PASSWORD=< database-user-password >
+  - DB_ROOT_PASSWORD=< database-root-user-password >
 
-In order to download the plugins we can periodically download the list of versions of each plugin from [here](https://update.sonarsource.org/) where we populate a list of plugins with their versions and their download links which we use to download them.
+### Starting the service
 
-### Login as admin
+In order to run the service you can simply run `make start` which will handle the following:
+- Having the GraphQL API listening on Port 8080
+- Starting the Observer service in parallel
+- Setting up the PostgreSQL database
 
-In order to login as admin we need to make use of the Web API
+### Functionalities
 
-The endpoint to login is the following: `POST {url}/api/authentication/login` with the body: `{ login: "username", password: "password" }`
-
-### Change the admin password
-
-The endpoint to change the password is: `POST {url}/api/users/change_password` with the body: `{ login: "username", previousPassword: "prevPassword", password: "password" }`
-
-### Create a new user with enough permissions
-
-The endpoint to create a user is: `POST {url}/api/users/create` with the body: `{ login: "username", name: "name", password: "password" }`
-
-Permissions should be set for the user, the endpoint to do that is: `POST {url}/api/permissions/add_user` with the body: `{ login: "username", permission: "permission" }`
-
-The permissions that should be set are: `scan` and `provisioning`.
-
-### Generate user token
-
-The endpoint to generate a token is: `POST {url}/api/user_tokens/generate` with the body: `{ login: "username", name: "token name" }`
-
-### Return
-
-Once everything is done and the Sonarqube instance is correctly configured we return the URL of the instance and the relevant information such as the Authentication Token that was generated for the created user.
+Lift currently supports the following:
+- Creating and changing the configuration that will be used for the deployments
+- Allows the execution of deployments to AWS
+- Has automatic teardown of non functional instances
