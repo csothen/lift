@@ -12,6 +12,7 @@ import (
 
 	"github.com/csothen/lift/internal/config"
 	"github.com/csothen/lift/internal/models"
+	"github.com/csothen/lift/internal/sdk/jenkins"
 	"github.com/csothen/lift/internal/sdk/sonarqube"
 	"github.com/csothen/lift/internal/services"
 	"github.com/csothen/lift/internal/terraform"
@@ -80,11 +81,10 @@ func (w *Worker) checkConnection(i models.Instance, st models.Type) bool {
 	switch st {
 	case models.SonarqubeService:
 		status, err := sonarqube.Status(i.URL)
-		if err != nil || status != sonarqube.Up {
-			log.Println(err)
-			return false
-		}
-		return true
+		return err == nil && status == sonarqube.Up
+	case models.JenkinsService:
+		status, err := jenkins.Status(i.URL)
+		return err == nil && status == jenkins.Up
 	default:
 		return false
 	}
@@ -108,12 +108,20 @@ func (w *Worker) handleFailedConnection(canonical string, exceededLimit bool, tf
 func (w *Worker) handleSuccessfulConnection(i models.Instance, d models.Deployment) error {
 	log.Println("Handling successful connection")
 
+	// set the instance's admin credentials
+	adminUsername, adminPassword := utils.GetAdminCredentials(d.Type, i.URL)
+
+	i.AdminCredential = models.Credential{
+		Username: adminUsername,
+		Password: adminPassword,
+	}
+
 	userCreds, err := w.createUserCredentials(i, d)
 	if err != nil {
 		return fmt.Errorf("could not create user credentials: %w", err)
 	}
 
-	// update the instance to hold user credentials and new state
+	// update the instance to hold credentials and new state
 	i, err = w.updateInstance(i, d.Canonical, userCreds)
 	if err != nil {
 		return fmt.Errorf("could not update instance: %w", err)
@@ -152,14 +160,11 @@ func (w *Worker) createUserCredentials(i models.Instance, d models.Deployment) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to create sonarqube user: %w", err)
 		}
-
-		for _, permission := range []string{"scan", "provisioning"} {
-			err = sonarqube.AddPermissionToUser(host, username, permission, adminUsername, adminPassword)
-			if err != nil {
-				return nil, fmt.Errorf("failed to add permission %s to user: %w", permission, err)
-			}
-		}
 		return &cred, nil
+	case models.JenkinsService:
+		// TODO: Configure Jenkins so that it actually requires credentials
+		// as it is it does not
+		return &models.Credential{}, nil
 	default:
 		return nil, fmt.Errorf("service type %s not supported", d.Type.String())
 	}

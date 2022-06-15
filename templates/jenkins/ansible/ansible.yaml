@@ -1,0 +1,80 @@
+---
+
+- name: Configure Jenkins
+  hosts: local
+  connection: local
+  become: true
+  tasks:
+    - name: Ensure dependencies are installed.
+      apt:
+        name:
+          - curl
+          - apt-transport-https
+          - gnupg
+          - 'fontconfig'
+          - 'openjdk-11-jre'
+        state: present
+
+    - name: Add Jenkins apt repository key.
+      apt_key:
+        url: "https://pkg.jenkins.io/debian-stable/jenkins.io.key"
+        state: present
+
+    - name: Add Jenkins apt repository.
+      apt_repository:
+        repo: "deb http://pkg.jenkins.io/debian-stable binary/"
+        state: present
+        update_cache: true
+
+    - name: Download specific Jenkins version.
+      get_url:
+        url: "https://mirrors.jenkins.io/debian/jenkins_{{ jenkins_version }}_all.deb"
+        dest: "/tmp/jenkins_{{ jenkins_version }}_all.deb"
+
+    - name: Install our specific version of Jenkins.
+      apt:
+        deb: "/tmp/jenkins_{{ jenkins_version }}_all.deb"
+        state: present
+
+    - name: Ensure Jenkins is installed.
+      apt:
+        name: jenkins
+        state: present
+    
+    # Configure Jenkins init settings.
+    - include_tasks: settings.yaml
+    
+    # Make sure Jenkins starts, then configure Jenkins.
+    - name: Ensure Jenkins is started and runs on startup.
+      service: name=jenkins state=started enabled=yes
+        
+    - name: Wait for Jenkins to start up before proceeding.
+      uri:
+        url: "http://localhost:8080/cli/"
+        method: GET
+        return_content: "yes"
+        timeout: 5
+        body_format: raw
+        follow_redirects: "no"
+        status_code: 200,403
+      register: result
+      until: (result.status == 403 or result.status == 200) and (result.content.find("Please wait while") == -1)
+      retries: "5"
+      delay: "60"
+      changed_when: false
+      check_mode: false
+
+    - name: Get the jenkins-cli jarfile from the Jenkins server.
+      get_url:
+        url: "http://localhost:8080/jnlpJars/jenkins-cli.jar"
+        dest: "/opt/jenkins-cli.jar"
+      register: jarfile_get
+      until: "'OK' in jarfile_get.msg or '304' in jarfile_get.msg or 'file already exists' in jarfile_get.msg"
+      retries: 5
+      delay: 10
+      check_mode: false
+
+    - name: Remove Jenkins security init scripts after first startup.
+      file:
+        path: "{{ jenkins_home }}/init.groovy.d/basic-security.groovy"
+        state: absent

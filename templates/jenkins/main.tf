@@ -21,9 +21,9 @@ resource "aws_security_group" "($ name $)" {
     name        = "($ name $)-sg"
 
     ingress {
-      description = "Access Sonarqube"
-      from_port   = 9000
-      to_port     = 9000
+      description = "Access Jenkins"
+      from_port   = 8080
+      to_port     = 8080
       protocol    = "tcp"
       cidr_blocks = ["0.0.0.0/0"]
     }
@@ -53,7 +53,7 @@ resource "aws_instance" "($ name $)" {
   // retrieved from https://cloud-images.ubuntu.com/locator/ec2/
   // and it refers to an eu-west-1 Ubuntu 18.04LTS amd64 machine
   ami           = "ami-0ce48dd7b483b8402"
-  instance_type = "t3.large"
+  instance_type = "t2.micro"
   key_name = aws_key_pair.($ name $).key_name
   
   security_groups = [aws_security_group.($ name $).name]
@@ -88,7 +88,6 @@ resource "null_resource" "run_ansible" {
   provisioner "remote-exec" {
     inline = [
       "chmod +x /tmp/files/run-ansible.sh",
-      "chmod +x /tmp/files/db-setup.sh",
       "/tmp/files/run-ansible.sh"
     ]
   }

@@ -1,30 +1,28 @@
-package sonarqube
+package jenkins
 
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"path"
-	"sync"
 
 	"github.com/csothen/lift/internal/fetcher/types"
 	"github.com/csothen/lift/internal/utils"
 )
 
 const (
-	StaticContentFilename string = "sonarqube.json"
+	StaticContentFilename string = "jenkins.json"
 )
 
 type fetcher struct {
-	Plugins           map[string]*types.Plugin     `json:"plugins"`
-	SonarqubeVersions map[string]*types.AppVersion `json:"sonarqube"`
+	Plugins         map[string]*types.Plugin     `json:"plugins"`
+	JenkinsVersions map[string]*types.AppVersion `json:"jenkins"`
 }
 
 func NewFetcher() *fetcher {
 	return &fetcher{
-		Plugins:           make(map[string]*types.Plugin),
-		SonarqubeVersions: make(map[string]*types.AppVersion),
+		Plugins:         make(map[string]*types.Plugin),
+		JenkinsVersions: make(map[string]*types.AppVersion),
 	}
 }
 
@@ -36,37 +34,11 @@ func (f *fetcher) Reload() error {
 }
 
 func (f *fetcher) Fetch() error {
-	psURL, err := url.Parse(pluginsSource)
-	if err != nil {
-		return fmt.Errorf("plugins source is not a valid URL: %w", err)
-	}
-
-	ssURL, err := url.Parse(sonarqubeSource)
-	if err != nil {
-		return fmt.Errorf("sonarqube versions source is not a valid URL: %w", err)
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go f.fetchPlugins(&wg, psURL)
-	go f.fetchSonarqubeVersions(&wg, ssURL)
-	wg.Wait()
-
 	return f.writeData()
 }
 
 func (f *fetcher) GetPlugin(name, version string) (*types.Plugin, error) {
-	if !f.hasData() {
-		if err := f.Reload(); err != nil {
-			return nil, fmt.Errorf("could not reload plugins data: %w", err)
-		}
-	}
-
-	plugin, ok := f.Plugins[buildPluginKey(name, version)]
-	if !ok {
-		return nil, fmt.Errorf("plugin with name %s and version %s was not found", name, version)
-	}
-	return plugin, nil
+	return &types.Plugin{}, nil
 }
 
 func (f *fetcher) ListPlugins() []*types.Plugin {
@@ -84,17 +56,10 @@ func (f *fetcher) ListPlugins() []*types.Plugin {
 }
 
 func (f *fetcher) GetApplicationVersion(version string) (*types.AppVersion, error) {
-	if !f.hasData() {
-		if err := f.Reload(); err != nil {
-			return nil, fmt.Errorf("could not reload sonarqube versions data: %w", err)
-		}
-	}
-
-	appVersion, ok := f.SonarqubeVersions[version]
-	if !ok {
-		return nil, fmt.Errorf("sonarqube version %s was not found", version)
-	}
-	return appVersion, nil
+	// TODO: Currently a constant could be dynamically fetched in the future
+	return &types.AppVersion{
+		Version: "2.332",
+	}, nil
 }
 
 func (f *fetcher) ListApplicationVersions() []*types.AppVersion {
@@ -105,14 +70,14 @@ func (f *fetcher) ListApplicationVersions() []*types.AppVersion {
 	}
 
 	versions := make([]*types.AppVersion, 0)
-	for _, v := range f.SonarqubeVersions {
+	for _, v := range f.JenkinsVersions {
 		versions = append(versions, v)
 	}
 	return versions
 }
 
 func (f *fetcher) hasData() bool {
-	return len(f.Plugins) > 0 && len(f.SonarqubeVersions) > 0
+	return len(f.Plugins) > 0 && len(f.JenkinsVersions) > 0
 }
 
 func (f *fetcher) hasStaticData() bool {

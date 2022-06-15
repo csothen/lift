@@ -16,6 +16,7 @@ type State uint
 
 const (
 	SonarqubeService Type = iota // sonarqube
+	JenkinsService               // jenkins
 
 	Running State = iota // running
 	Pending              // pending

@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-const _TypeName = "sonarqube"
+const _TypeName = "sonarqubejenkins"
 
-var _TypeIndex = [...]uint8{0, 9}
+var _TypeIndex = [...]uint8{0, 9, 16}
 
-const _TypeLowerName = "sonarqube"
+const _TypeLowerName = "sonarqubejenkins"
 
 func (i Type) String() string {
 	if i >= Type(len(_TypeIndex)-1) {
@@ -25,17 +25,21 @@ func (i Type) String() string {
 func _TypeNoOp() {
 	var x [1]struct{}
 	_ = x[SonarqubeService-(0)]
+	_ = x[JenkinsService-(1)]
 }
 
-var _TypeValues = []Type{SonarqubeService}
+var _TypeValues = []Type{SonarqubeService, JenkinsService}
 
 var _TypeNameToValueMap = map[string]Type{
-	_TypeName[0:9]:      SonarqubeService,
-	_TypeLowerName[0:9]: SonarqubeService,
+	_TypeName[0:9]:       SonarqubeService,
+	_TypeLowerName[0:9]:  SonarqubeService,
+	_TypeName[9:16]:      JenkinsService,
+	_TypeLowerName[9:16]: JenkinsService,
 }
 
 var _TypeNames = []string{
 	_TypeName[0:9],
+	_TypeName[9:16],
 }
 
 // TypeString retrieves an enum value from the enum constants string name.

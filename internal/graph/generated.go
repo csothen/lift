@@ -575,6 +575,7 @@ extend type Mutation {
 }`, BuiltIn: false},
 	{Name: "internal/graph/schema/schema.gql", Input: `enum ServiceType {
   sonarqube
+  jenkins
 }
 
 enum DeploymentState {

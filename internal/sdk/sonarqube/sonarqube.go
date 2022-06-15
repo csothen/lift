@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 )
@@ -37,7 +36,6 @@ func Status(host string) (StatusCode, error) {
 
 	res, err := client.Do(scReq)
 	if err != nil || res.StatusCode != 200 {
-		log.Println(err)
 		return "", fmt.Errorf("could not check instance status")
 	}
 
@@ -89,10 +87,16 @@ func CreateUser(host, username, password, adminUsername, adminPassword string) e
 		return fmt.Errorf("failed to create user: \n%s", string(errData))
 	}
 
+	for _, permission := range []string{"scan", "provisioning"} {
+		err = addPermissionToUser(host, username, permission, adminUsername, adminPassword)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-func AddPermissionToUser(host, username, permission, adminUsername, adminPassword string) error {
+func addPermissionToUser(host, username, permission, adminUsername, adminPassword string) error {
 	addPermissionsURL := fmt.Sprintf("http://%s:9000/api/permissions/add_user", host)
 
 	// Create request parameters

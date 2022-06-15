@@ -11,6 +11,7 @@ import (
 
 	"github.com/csothen/lift/internal/db"
 	"github.com/csothen/lift/internal/fetcher"
+	"github.com/csothen/lift/internal/fetcher/jenkins"
 	"github.com/csothen/lift/internal/fetcher/sonarqube"
 	"github.com/csothen/lift/internal/models"
 	"github.com/csothen/lift/internal/models/dtos"
@@ -63,6 +64,7 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 	// Load the fetchers into a map that can be easily accessed
 	fetchers := map[string]fetcher.Fetcher{
 		models.SonarqubeService.String(): sonarqube.NewFetcher(),
+		models.JenkinsService.String():   jenkins.NewFetcher(),
 	}
 
 	tfw := terraform.NewWorker(s.config.TerraformExecPath)
@@ -100,44 +102,12 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 				}
 			}
 
-			f, ok := fetchers[ns.Service]
-			if !ok {
-				errors = append(errors, fmt.Errorf("no fetcher found for service %s", ns.Service))
-				continue
-			}
+			deployments = append(deployments, cd)
 
-			key := fmt.Sprintf("%s:%s", nd.UseCase, ns.Service)
-			config := configurations[key]
-
-			// fetch the application version the configuration mentions
-			appVersion, err := f.GetApplicationVersion(config.Version)
+			intpl, err := s.loadInterpolator(nd.UseCase, ns.Service, canonical, ns.Count, fetchers, configurations)
 			if err != nil {
 				errors = append(errors, err)
 				continue
-			}
-
-			// fetch the plugins the configuration mentions
-			pluginURLs := make([]string, 0)
-			for _, p := range config.Plugins {
-				plugin, err := f.GetPlugin(p.Name, p.Version)
-				if err != nil {
-					errors = append(errors, err)
-					continue
-				}
-				pluginURLs = append(pluginURLs, plugin.DownloadURL)
-			}
-
-			deployments = append(deployments, cd)
-
-			databasePassword := utils.GeneratePassword(int64(len(canonical)))
-
-			intpl := utils.Interpolator{
-				Name:        canonical,
-				Count:       ns.Count,
-				DownloadURL: appVersion.DownloadURL,
-				Version:     appVersion.Version,
-				DbPass:      databasePassword,
-				PluginURLs:  pluginURLs,
 			}
 
 			// we start goroutines that will do the actual deployments
@@ -173,7 +143,7 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 					return
 				}
 
-				err = s.interpolateAndWriteFiles(filepaths, canonical, ns.Service, pathToDir, intpl)
+				err = s.interpolateAndWriteFiles(filepaths, canonical, ns.Service, pathToDir, *intpl)
 				if err != nil {
 					errors = append(errors, err)
 					return
@@ -202,10 +172,6 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 						DeploymentCanonical: d.Canonical,
 						State:               uint(models.Pending),
 						URL:                 durl,
-						AdminCredential: db.Credential{
-							Username: "admin",
-							Password: "admin",
-						},
 					}
 					instances[i] = dbi
 				}
@@ -314,6 +280,45 @@ func (s *Service) persistDeployment(ctx context.Context, canonical string, st mo
 	deployment.FromDB(dbd)
 
 	return deployment, nil
+}
+
+func (s *Service) loadInterpolator(uc, service, canonical string, count int, fetchers map[string]fetcher.Fetcher, configurations map[string]*models.ServiceConfiguration) (*utils.Interpolator, error) {
+	f, ok := fetchers[service]
+	if !ok {
+		return nil, fmt.Errorf("no fetcher found for service %s", service)
+	}
+
+	key := fmt.Sprintf("%s:%s", uc, service)
+	config := configurations[key]
+
+	// fetch the application version the configuration mentions
+	appVersion, err := f.GetApplicationVersion(config.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	// fetch the plugins the configuration mentions
+	pluginURLs := make([]string, 0)
+	for _, p := range config.Plugins {
+		plugin, err := f.GetPlugin(p.Name, p.Version)
+		if err != nil {
+			return nil, err
+		}
+		pluginURLs = append(pluginURLs, plugin.DownloadURL)
+	}
+
+	databasePassword := utils.GeneratePassword(int64(len(canonical)))
+
+	intpl := &utils.Interpolator{
+		Name:        canonical,
+		Count:       count,
+		DownloadURL: appVersion.DownloadURL,
+		Version:     appVersion.Version,
+		DbPass:      databasePassword,
+		PluginURLs:  pluginURLs,
+	}
+
+	return intpl, nil
 }
 
 func (s *Service) interpolateAndWriteFiles(filepaths []string, canonical, service, pathToDir string, intpl utils.Interpolator) error {

@@ -14,9 +14,9 @@ var _StateIndex = [...]uint8{0, 7, 14, 21}
 const _StateLowerName = "runningpendingstopped"
 
 func (i State) String() string {
-	i -= 1
+	i -= 2
 	if i >= State(len(_StateIndex)-1) {
-		return fmt.Sprintf("State(%d)", i+1)
+		return fmt.Sprintf("State(%d)", i+2)
 	}
 	return _StateName[_StateIndex[i]:_StateIndex[i+1]]
 }
@@ -25,9 +25,9 @@ func (i State) String() string {
 // Re-run the stringer command to generate them again.
 func _StateNoOp() {
 	var x [1]struct{}
-	_ = x[Running-(1)]
-	_ = x[Pending-(2)]
-	_ = x[Stopped-(3)]
+	_ = x[Running-(2)]
+	_ = x[Pending-(3)]
+	_ = x[Stopped-(4)]
 }
 
 var _StateValues = []State{Running, Pending, Stopped}

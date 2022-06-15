@@ -134,15 +134,17 @@ type ServiceType string
 
 const (
 	ServiceTypeSonarqube ServiceType = "sonarqube"
+	ServiceTypeJenkins   ServiceType = "jenkins"
 )
 
 var AllServiceType = []ServiceType{
 	ServiceTypeSonarqube,
+	ServiceTypeJenkins,
 }
 
 func (e ServiceType) IsValid() bool {
 	switch e {
-	case ServiceTypeSonarqube:
+	case ServiceTypeSonarqube, ServiceTypeJenkins:
 		return true
 	}
 	return false
