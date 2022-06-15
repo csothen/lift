@@ -81,42 +81,81 @@ func (s *Service) AddConfigurationService(ctx context.Context, usecase string, s
 }
 
 // UpdateConfigurationUseCase updates a specific usecase in the configuration
-func (s *Service) UpdateConfigurationUsecase(ctx context.Context, usecase string, ucconfig *models.UseCaseConfiguration) error {
+func (s *Service) UpdateConfigurationUsecase(ctx context.Context, usecase string, ucconfig *models.UseCaseConfiguration) (*models.Configuration, error) {
+	ucconfig.Name = usecase
 	err := s.repo.UpdateUseCaseConfiguration(ctx, *ucconfig.ToDB())
 	if err != nil {
-		return fmt.Errorf("failed to update the usecase %s in the configuration: %w", usecase, err)
+		return nil, fmt.Errorf("failed to update the usecase %s in the configuration: %w", usecase, err)
 	}
-	return nil
+
+	// fetch updated global configuration
+	dbgc, err := s.repo.GetConfiguration(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve the global configuration: %w", err)
+	}
+	gconfig := &models.Configuration{}
+	gconfig.FromDB(dbgc)
+	return gconfig, nil
 }
 
 // UpdateConfigurationService updates a service of a specific usecase in the configuration
-func (s *Service) UpdateConfigurationService(ctx context.Context, usecase, service string, sconfig *models.ServiceConfiguration) error {
-	err := s.repo.UpdateServiceConfiguration(ctx, *sconfig.ToDB(usecase))
+func (s *Service) UpdateConfigurationService(ctx context.Context, usecase, service string, sconfig *models.ServiceConfiguration) (*models.Configuration, error) {
+	st, err := models.TypeString(service)
 	if err != nil {
-		return fmt.Errorf("failed to update the service %s in the usecase %s in the configuration: %w", service, usecase, err)
+		return nil, fmt.Errorf("invalid service type %s: %w", service, err)
 	}
-	return nil
+
+	sconfig.Type = st
+	err = s.repo.UpdateServiceConfiguration(ctx, *sconfig.ToDB(usecase))
+	if err != nil {
+		return nil, fmt.Errorf("failed to update the service %s in the usecase %s in the configuration: %w", service, usecase, err)
+	}
+
+	// fetch updated global configuration
+	dbgc, err := s.repo.GetConfiguration(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve the global configuration: %w", err)
+	}
+	gconfig := &models.Configuration{}
+	gconfig.FromDB(dbgc)
+	return gconfig, nil
 }
 
 // DeleteConfigurationUseCase deletes a specific usecase from the configuration
-func (s *Service) DeleteConfigurationUseCase(ctx context.Context, usecase string) error {
+func (s *Service) DeleteConfigurationUseCase(ctx context.Context, usecase string) (*models.Configuration, error) {
 	err := s.repo.DeleteUseCaseConfiguration(ctx, usecase)
 	if err != nil {
-		return fmt.Errorf("failed to delete usecase %s from the configuration: %w", usecase, err)
+		return nil, fmt.Errorf("failed to delete usecase %s from the configuration: %w", usecase, err)
 	}
-	return nil
+
+	// fetch updated global configuration
+	dbgc, err := s.repo.GetConfiguration(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve the global configuration: %w", err)
+	}
+	gconfig := &models.Configuration{}
+	gconfig.FromDB(dbgc)
+	return gconfig, nil
 }
 
 // DeleteConfigurationService deletes a service from a specific usecase in the configuration
-func (s *Service) DeleteConfigurationService(ctx context.Context, usecase, service string) error {
-	stype, err := models.TypeString(service)
+func (s *Service) DeleteConfigurationService(ctx context.Context, usecase, service string) (*models.Configuration, error) {
+	st, err := models.TypeString(service)
 	if err != nil {
-		return fmt.Errorf("invalid service type %s: %w", service, err)
+		return nil, fmt.Errorf("invalid service type %s: %w", service, err)
 	}
 
-	err = s.repo.DeleteServiceConfiguration(ctx, usecase, uint(stype))
+	err = s.repo.DeleteServiceConfiguration(ctx, usecase, uint(st))
 	if err != nil {
-		return fmt.Errorf("failed to delete usecase %s from the configuration: %w", usecase, err)
+		return nil, fmt.Errorf("failed to delete usecase %s from the configuration: %w", usecase, err)
 	}
-	return nil
+
+	// fetch updated global configuration
+	dbgc, err := s.repo.GetConfiguration(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve the global configuration: %w", err)
+	}
+	gconfig := &models.Configuration{}
+	gconfig.FromDB(dbgc)
+	return gconfig, nil
 }

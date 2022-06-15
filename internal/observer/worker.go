@@ -7,7 +7,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -97,27 +96,10 @@ func (w *Worker) handleFailedConnection(canonical string, exceededLimit bool, tf
 		return nil
 	}
 
-	deploymentDir, err := utils.BuildDeploymentFolderPath(canonical)
-	if err != nil {
-		return fmt.Errorf("could not build path to deployment %s: %w", canonical, err)
-	}
-
 	go func() {
-		err = tfw.Teardown(deploymentDir)
+		_, err := w.s.DeleteDeployment(context.Background(), canonical)
 		if err != nil {
-			log.Println(fmt.Errorf("could not teardown deployment %s: %w", canonical, err))
-			return
-		}
-
-		err = os.RemoveAll(deploymentDir)
-		if err != nil {
-			log.Println(fmt.Errorf("could not delete deployment files folder: %w", err))
-			return
-		}
-
-		err = w.s.DeleteDeployment(context.Background(), canonical)
-		if err != nil {
-			log.Println(fmt.Errorf("could not delete deployment: %w", err))
+			log.Println(err)
 		}
 	}()
 	return nil
@@ -125,6 +107,7 @@ func (w *Worker) handleFailedConnection(canonical string, exceededLimit bool, tf
 
 func (w *Worker) handleSuccessfulConnection(i models.Instance, d models.Deployment) error {
 	log.Println("Handling successful connection")
+
 	userCreds, err := w.createUserCredentials(i, d)
 	if err != nil {
 		return fmt.Errorf("could not create user credentials: %w", err)

@@ -8,7 +8,6 @@ import (
 	"github.com/csothen/env"
 	"github.com/csothen/lift/internal/db"
 	"github.com/csothen/lift/internal/graph"
-	"github.com/csothen/lift/internal/middlewares"
 	"github.com/csothen/lift/internal/services"
 	"github.com/csothen/lift/internal/utils"
 	"github.com/gorilla/mux"
@@ -35,8 +34,6 @@ var serverCmd = &cobra.Command{
 		s := services.New(repo, cfg)
 
 		router := mux.NewRouter()
-		router.Use(middlewares.Json)
-		router.Use(middlewares.Auth(s))
 
 		router.Handle("/", graph.NewPlaygroundHandler("/query"))
 		router.Handle("/query", graph.NewHandler(s))

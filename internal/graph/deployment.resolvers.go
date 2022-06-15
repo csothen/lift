@@ -28,12 +28,27 @@ func (r *mutationResolver) CreateDeployments(ctx context.Context, input NewDeplo
 
 		for j, instance := range deployment.Instances {
 			nd.Instances[j] = Instance{
-				State: instance.State,
+				State: DeploymentState(instance.State),
 			}
 		}
 		nds[i] = nd
 	}
 	return nds, nil
+}
+
+func (r *mutationResolver) DeleteDeployment(ctx context.Context, canonical string) ([]Deployment, error) {
+	deployments, err := r.s.DeleteDeployment(ctx, canonical)
+	if err != nil {
+		return nil, err
+	}
+
+	ds := make([]Deployment, len(deployments))
+	for i, deployment := range deployments {
+		d := &Deployment{}
+		d.fromModel(*deployment)
+		ds[i] = *d
+	}
+	return ds, nil
 }
 
 func (r *queryResolver) Deployments(ctx context.Context) ([]Deployment, error) {

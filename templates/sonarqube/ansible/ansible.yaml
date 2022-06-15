@@ -32,7 +32,7 @@
         - libfreetype6
         - zip
         - unzip
-    
+
     - name: Strip carriage returns from scripts to ensure this works from Windows VMs
       replace:
         path: "/tmp/files/db-setup.sh"
@@ -42,7 +42,7 @@
     - name: Create postgres user and DB for SonarQube
       become: yes
       become_user: postgres
-      command: "/tmp/files/db-setup.sh {{ sonar_db_pass }} {{ sonar_admin_password }}"
+      command: "/tmp/files/db-setup.sh {{ sonar_db_pass }}"
     
     - name: Create the sonar user for running the SonarQube services
       user:

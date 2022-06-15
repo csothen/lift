@@ -13,10 +13,6 @@ import (
 )
 
 type Querier interface {
-	// API Key operations
-	ValidateAPIKey(ctx context.Context, key string) error
-	RefreshAPIKey(ctx context.Context, newKey string) error
-
 	// Configuration CRUD operations
 	GetConfiguration(ctx context.Context) (*Configuration, error)
 	GetUseCaseConfiguration(ctx context.Context, uc string) (*UseCaseConfiguration, error)
@@ -53,7 +49,6 @@ func New(cfg *config.Config) Querier {
 	}
 
 	db.AutoMigrate(
-		&APIKey{},
 		&Deployment{}, &Instance{}, &Credential{},
 		&UseCaseConfiguration{}, &ServiceConfiguration{}, &PluginInformation{},
 	)

@@ -18,6 +18,20 @@ func (nuc *NewUseCaseConfiguration) toDTO() *dtos.NewUseCaseConfiguration {
 	return dto
 }
 
+func (uuc *UpdateUseCaseConfiguration) toModel(name string) *models.UseCaseConfiguration {
+	ucm := &models.UseCaseConfiguration{
+		Name:     name,
+		Services: make([]models.ServiceConfiguration, len(uuc.Services)),
+	}
+
+	for i, ns := range uuc.Services {
+		smodel := *ns.toModel()
+		ucm.Services[i] = smodel
+	}
+
+	return ucm
+}
+
 func (ns *NewServiceConfiguration) toDTO() *dtos.NewServiceConfiguration {
 	dto := &dtos.NewServiceConfiguration{
 		Type:    ns.Type.String(),
@@ -32,6 +46,40 @@ func (ns *NewServiceConfiguration) toDTO() *dtos.NewServiceConfiguration {
 		}
 	}
 	return dto
+}
+
+func (ns *NewServiceConfiguration) toModel() *models.ServiceConfiguration {
+	st, _ := models.TypeString(ns.Type.String())
+	sm := &models.ServiceConfiguration{
+		Type:    st,
+		Version: ns.Version,
+		Plugins: make([]models.PluginInformation, len(ns.Plugins)),
+	}
+
+	for i, np := range ns.Plugins {
+		sm.Plugins[i] = models.PluginInformation{
+			Name:    np.Name,
+			Version: np.Version,
+		}
+	}
+	return sm
+}
+
+func (us *UpdateServiceConfiguration) toModel(service string) *models.ServiceConfiguration {
+	st, _ := models.TypeString(service)
+	sm := &models.ServiceConfiguration{
+		Type:    st,
+		Version: us.Version,
+		Plugins: make([]models.PluginInformation, len(us.Plugins)),
+	}
+
+	for i, np := range us.Plugins {
+		sm.Plugins[i] = models.PluginInformation{
+			Name:    np.Name,
+			Version: np.Version,
+		}
+	}
+	return sm
 }
 
 func (nds *NewDeployments) toDTO() *dtos.NewDeployments {
@@ -55,7 +103,7 @@ func (nd *NewDeployment) toDTO() *dtos.NewDeployment {
 
 	for i, ns := range nd.Services {
 		dto.Services[i] = dtos.NewService{
-			Service: ns.Service,
+			Service: ns.Service.String(),
 			Count:   *ns.Count,
 		}
 	}
@@ -108,7 +156,7 @@ func (d *Deployment) fromModel(dm models.Deployment) {
 
 func (i *Instance) fromModel(im models.Instance) {
 	i.URL = im.URL
-	i.State = im.State.String()
+	i.State = DeploymentState(im.State.String())
 
 	ucred := &Credential{}
 	ucred.fromModel(im.UserCredential)

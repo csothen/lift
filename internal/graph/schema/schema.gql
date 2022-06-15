@@ -1,9 +1,9 @@
 enum ServiceType {
-  Sonarqube
+  sonarqube
 }
 
 enum DeploymentState {
-  Running
-  Pending
-  Stopped
+  running
+  pending
+  stopped
 }

@@ -23,9 +23,17 @@ input NewUseCaseConfiguration {
   services: [NewServiceConfiguration!]!
 }
 
+input UpdateUseCaseConfiguration {
+  services: [NewServiceConfiguration!]!
+}
+
 input NewServiceConfiguration {
-  usecase: String!
   type: ServiceType!
+  version: String!
+  plugins: [NewPluginConfiguration!]!
+}
+
+input UpdateServiceConfiguration {
   version: String!
   plugins: [NewPluginConfiguration!]!
 }
@@ -43,5 +51,10 @@ extend type Query {
 
 extend type Mutation {
   addUseCaseConfiguration(input: NewUseCaseConfiguration!): Configuration!
-  addServiceConfiguration(input: NewServiceConfiguration!): Configuration!
+  updateUseCaseConfiguration(uc: String!, input: UpdateUseCaseConfiguration!): Configuration!
+  deleteUseCaseConfiguration(uc: String!): Configuration!
+  
+  addServiceConfiguration(uc: String!, input: NewServiceConfiguration!): Configuration!
+  updateServiceConfiguration(uc: String!, service: ServiceType!, input: UpdateServiceConfiguration!): Configuration!
+  deleteServiceConfiguration(uc: String!, service: ServiceType): Configuration!
 }

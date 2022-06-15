@@ -7,7 +7,7 @@ type Deployment {
 
 type Instance {
   url: String!
-  state: String!
+  state: DeploymentState!
   userCredential: Credential!
 }
 
@@ -28,7 +28,7 @@ input NewDeployment {
 }
 
 input NewService {
-  service: String!
+  service: ServiceType!
   count: Int
 }
 
@@ -39,4 +39,5 @@ extend type Query {
 
 extend type Mutation {
   createDeployments(input: NewDeployments!): [Deployment!]!
+  deleteDeployment(canonical: String!): [Deployment!]!
 }

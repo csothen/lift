@@ -26,9 +26,9 @@ type Deployment struct {
 }
 
 type Instance struct {
-	URL            string      `json:"url"`
-	State          string      `json:"state"`
-	UserCredential *Credential `json:"userCredential"`
+	URL            string          `json:"url"`
+	State          DeploymentState `json:"state"`
+	UserCredential *Credential     `json:"userCredential"`
 }
 
 type NewDeployment struct {
@@ -47,12 +47,11 @@ type NewPluginConfiguration struct {
 }
 
 type NewService struct {
-	Service string `json:"service"`
-	Count   *int   `json:"count"`
+	Service ServiceType `json:"service"`
+	Count   *int        `json:"count"`
 }
 
 type NewServiceConfiguration struct {
-	Usecase string                   `json:"usecase"`
 	Type    ServiceType              `json:"type"`
 	Version string                   `json:"version"`
 	Plugins []NewPluginConfiguration `json:"plugins"`
@@ -74,6 +73,15 @@ type ServiceConfiguration struct {
 	Plugins []PluginConfiguration `json:"plugins"`
 }
 
+type UpdateServiceConfiguration struct {
+	Version string                   `json:"version"`
+	Plugins []NewPluginConfiguration `json:"plugins"`
+}
+
+type UpdateUseCaseConfiguration struct {
+	Services []NewServiceConfiguration `json:"services"`
+}
+
 type UseCaseConfiguration struct {
 	Name     string                 `json:"name"`
 	Services []ServiceConfiguration `json:"services"`
@@ -82,9 +90,9 @@ type UseCaseConfiguration struct {
 type DeploymentState string
 
 const (
-	DeploymentStateRunning DeploymentState = "Running"
-	DeploymentStatePending DeploymentState = "Pending"
-	DeploymentStateStopped DeploymentState = "Stopped"
+	DeploymentStateRunning DeploymentState = "running"
+	DeploymentStatePending DeploymentState = "pending"
+	DeploymentStateStopped DeploymentState = "stopped"
 )
 
 var AllDeploymentState = []DeploymentState{
@@ -125,7 +133,7 @@ func (e DeploymentState) MarshalGQL(w io.Writer) {
 type ServiceType string
 
 const (
-	ServiceTypeSonarqube ServiceType = "Sonarqube"
+	ServiceTypeSonarqube ServiceType = "sonarqube"
 )
 
 var AllServiceType = []ServiceType{

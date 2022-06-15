@@ -9,10 +9,11 @@ func (q *querier) GetAllDeployments(ctx context.Context) ([]*Deployment, error) 
 	db := q.db.WithContext(ctx)
 
 	var deployments []*Deployment
-	res := db.Preload("Instances").Find(&deployments)
+	res := db.Preload("Instances.AdminCredential").Preload("Instances.UserCredential").Find(&deployments)
 	if res.Error != nil {
 		return nil, fmt.Errorf("deployments not found: %w", res.Error)
 	}
+
 	return deployments, nil
 }
 

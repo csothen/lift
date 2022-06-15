@@ -50,37 +50,12 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 	warnings = make([]error, 0)
 	errors = make([]error, 0)
 
-	configurations := make(map[string]*models.ServiceConfiguration)
-	// Validate the requested deployments
-	for _, nd := range nds.Deployments {
-		uc := nd.UseCase
-		if _, err := s.repo.GetUseCaseConfiguration(ctx, uc); err != nil {
-			errors = append(errors, fmt.Errorf("could not find usecase %s", uc))
-			continue
-		}
-
-		for _, ns := range nd.Services {
-			st, err := models.TypeString(ns.Service)
-			if err != nil {
-				errors = append(errors, fmt.Errorf("%s is not a valid service", ns.Service))
-				continue
-			}
-			dbsc, err := s.repo.GetServiceConfiguration(ctx, uc, uint(st))
-			if err != nil {
-				errors = append(errors, fmt.Errorf("could not find configuration for service %s on usecase %s", ns.Service, uc))
-				continue
-			}
-
-			// load the configuration for the specific use case and service type
-			sc := &models.ServiceConfiguration{}
-			sc.FromDB(dbsc)
-			key := fmt.Sprintf("%s:%s", uc, ns.Service)
-			configurations[key] = sc
-		}
+	configurations, errors := s.loadAndVerifyConfigurations(ctx, nds)
+	if len(errors) > 0 {
+		return nil, nil, errors
 	}
 
-	// If there were errors then we return the
-	// errors and don't process the deployments
+	templates, errors := s.loadTemplateFiles()
 	if len(errors) > 0 {
 		return nil, nil, errors
 	}
@@ -90,45 +65,7 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 		models.SonarqubeService.String(): sonarqube.NewFetcher(),
 	}
 
-	// create the Terraform worker which will do the deployments
 	tfw := terraform.NewWorker(s.config.TerraformExecPath)
-
-	// find the template files that will be used to generate the
-	// actual deployment files
-	templatesDir, err := utils.BuildTemplatesFolderPath()
-	if err != nil {
-		errors = append(errors, fmt.Errorf("could not build templates directory path: %w", err))
-		return nil, nil, errors
-	}
-
-	dirs, err := os.ReadDir(templatesDir)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("could not read all template directories: %w", err))
-		return nil, nil, errors
-	}
-
-	// load the template files paths in a map
-	templates := make(map[string][]string)
-	for _, dir := range dirs {
-		if !dir.IsDir() {
-			continue
-		}
-
-		serviceTemplateDir := path.Join(templatesDir, dir.Name())
-		filepaths := utils.ReadDir(serviceTemplateDir)
-
-		if len(filepaths) == 0 {
-			log.Println(fmt.Errorf("no files founds in dir %s", serviceTemplateDir))
-			continue
-		}
-		templates[dir.Name()] = filepaths
-	}
-
-	// if for some reason we failed to find the files
-	// we return the errors
-	if len(errors) > 0 {
-		return nil, nil, errors
-	}
 
 	// For each individual deployment persist its information
 	// and start a goroutine that will do the deployment logic
@@ -192,15 +129,13 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 
 			deployments = append(deployments, cd)
 
-			adminPassword := utils.GeneratePassword(int64(len(canonical)))
-			databasePassword := utils.GeneratePassword(int64(ns.Count))
+			databasePassword := utils.GeneratePassword(int64(len(canonical)))
 
 			intpl := utils.Interpolator{
 				Name:        canonical,
 				Count:       ns.Count,
 				DownloadURL: appVersion.DownloadURL,
 				Version:     appVersion.Version,
-				AdminPass:   adminPassword,
 				DbPass:      databasePassword,
 				PluginURLs:  pluginURLs,
 			}
@@ -238,48 +173,10 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 					return
 				}
 
-				for _, fp := range filepaths {
-					templateFilepath := path.Join(templatesDir, ns.Service, fp)
-					f, err := os.Open(templateFilepath)
-					if err != nil {
-						errors = append(errors, fmt.Errorf("could not open file %s: %w", fp, err))
-						return
-					}
-					defer f.Close()
-
-					fcontents, err := ioutil.ReadAll(f)
-					if err != nil {
-						errors = append(errors, fmt.Errorf("could not read file %s's contents: %w", fp, err))
-						return
-					}
-
-					fcontents = intpl.Interpolate(fcontents)
-
-					deploymentFilepath := path.Join(pathToDir, fp)
-
-					// we take everything that is not the name of the file that will be created and
-					// create all the directories needed
-					dirsUntilBase := deploymentFilepath[0 : len(deploymentFilepath)-len(path.Base(deploymentFilepath))]
-					err = os.MkdirAll(dirsUntilBase, 0755)
-					if err != nil {
-						log.Fatal(fmt.Errorf("error creating directory for deployment %s: %w", canonical, err))
-						return
-					}
-
-					// we create the file at the deployment files folder
-					cf, err := os.Create(deploymentFilepath)
-					if err != nil {
-						errors = append(errors, fmt.Errorf("could not create file %s: %w", deploymentFilepath, err))
-						return
-					}
-					defer cf.Close()
-
-					// we write the interpolated contents to the file
-					_, err = cf.Write(fcontents)
-					if err != nil {
-						errors = append(errors, fmt.Errorf("could not write to file %s: %w", deploymentFilepath, err))
-						return
-					}
+				err = s.interpolateAndWriteFiles(filepaths, canonical, ns.Service, pathToDir, intpl)
+				if err != nil {
+					errors = append(errors, err)
+					return
 				}
 
 				// once all files are interpolated and created we do the
@@ -307,7 +204,7 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 						URL:                 durl,
 						AdminCredential: db.Credential{
 							Username: "admin",
-							Password: adminPassword,
+							Password: "admin",
 						},
 					}
 					instances[i] = dbi
@@ -337,6 +234,72 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 	return deployments, warnings, nil
 }
 
+func (s *Service) loadAndVerifyConfigurations(ctx context.Context, nds *dtos.NewDeployments) (map[string]*models.ServiceConfiguration, []error) {
+	errors := make([]error, 0)
+	configurations := make(map[string]*models.ServiceConfiguration)
+
+	for _, nd := range nds.Deployments {
+		uc := nd.UseCase
+		if _, err := s.repo.GetUseCaseConfiguration(ctx, uc); err != nil {
+			errors = append(errors, fmt.Errorf("could not find usecase %s", uc))
+			continue
+		}
+
+		for _, ns := range nd.Services {
+			st, err := models.TypeString(ns.Service)
+			if err != nil {
+				errors = append(errors, fmt.Errorf("%s is not a valid service", ns.Service))
+				continue
+			}
+			dbsc, err := s.repo.GetServiceConfiguration(ctx, uc, uint(st))
+			if err != nil {
+				errors = append(errors, fmt.Errorf("could not find configuration for service %s on usecase %s", ns.Service, uc))
+				continue
+			}
+
+			// load the configuration for the specific use case and service type
+			sc := &models.ServiceConfiguration{}
+			sc.FromDB(dbsc)
+			key := fmt.Sprintf("%s:%s", uc, ns.Service)
+			configurations[key] = sc
+		}
+	}
+	return configurations, errors
+}
+
+func (s *Service) loadTemplateFiles() (map[string][]string, []error) {
+	errors := make([]error, 0)
+	templates := make(map[string][]string)
+
+	templatesDir, err := utils.BuildTemplatesFolderPath()
+	if err != nil {
+		errors = append(errors, fmt.Errorf("could not build templates directory path: %w", err))
+		return nil, errors
+	}
+
+	dirs, err := os.ReadDir(templatesDir)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("could not read all template directories: %w", err))
+		return nil, errors
+	}
+
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			continue
+		}
+
+		serviceTemplateDir := path.Join(templatesDir, dir.Name())
+		filepaths := utils.ReadDir(serviceTemplateDir)
+
+		if len(filepaths) == 0 {
+			log.Println(fmt.Errorf("no files founds in dir %s", serviceTemplateDir))
+			continue
+		}
+		templates[dir.Name()] = filepaths
+	}
+	return templates, nil
+}
+
 func (s *Service) persistDeployment(ctx context.Context, canonical string, st models.Type, callbackURL string) (*models.Deployment, error) {
 	dbd, err := s.repo.CreateDeployment(ctx, db.Deployment{
 		Canonical:   canonical,
@@ -353,22 +316,80 @@ func (s *Service) persistDeployment(ctx context.Context, canonical string, st mo
 	return deployment, nil
 }
 
-// Update updates a deployment with the given canonical
-func (s *Service) UpdateDeployment(ctx context.Context, dcan string, d *models.Deployment) error {
-	err := s.repo.UpdateDeployment(ctx, *d.ToDB())
+func (s *Service) interpolateAndWriteFiles(filepaths []string, canonical, service, pathToDir string, intpl utils.Interpolator) error {
+	templatesDir, err := utils.BuildTemplatesFolderPath()
 	if err != nil {
-		return fmt.Errorf("failed to update the deployment %s: %w", dcan, err)
+		return fmt.Errorf("could not build templates directory path: %w", err)
+	}
+
+	for _, fp := range filepaths {
+		templateFilepath := path.Join(templatesDir, service, fp)
+		f, err := os.Open(templateFilepath)
+		if err != nil {
+			return fmt.Errorf("could not open file %s: %w", fp, err)
+		}
+		defer f.Close()
+
+		fcontents, err := ioutil.ReadAll(f)
+		if err != nil {
+			return fmt.Errorf("could not read file %s's contents: %w", fp, err)
+		}
+
+		fcontents = intpl.Interpolate(fcontents)
+
+		deploymentFilepath := path.Join(pathToDir, fp)
+
+		// we take everything that is not the name of the file that will be created and
+		// create all the directories needed
+		dirsUntilBase := deploymentFilepath[0 : len(deploymentFilepath)-len(path.Base(deploymentFilepath))]
+		err = os.MkdirAll(dirsUntilBase, 0755)
+		if err != nil {
+			return fmt.Errorf("error creating directory for deployment %s: %w", canonical, err)
+		}
+
+		// we create the file at the deployment files folder
+		cf, err := os.Create(deploymentFilepath)
+		if err != nil {
+			return fmt.Errorf("could not create file %s: %w", deploymentFilepath, err)
+		}
+		defer cf.Close()
+
+		// we write the interpolated contents to the file
+		_, err = cf.Write(fcontents)
+		if err != nil {
+			return fmt.Errorf("could not write to file %s: %w", deploymentFilepath, err)
+		}
 	}
 	return nil
 }
 
 // Delete deletes a deployment with the given canonical
-func (s *Service) DeleteDeployment(ctx context.Context, dcan string) error {
-	err := s.repo.DeleteDeployment(ctx, dcan)
+func (s *Service) DeleteDeployment(ctx context.Context, dcan string) ([]*models.Deployment, error) {
+	// create the Terraform worker which will delete the deployments
+	tfw := terraform.NewWorker(s.config.TerraformExecPath)
+
+	deploymentDir, err := utils.BuildDeploymentFolderPath(dcan)
 	if err != nil {
-		return fmt.Errorf("failed to delete deployment %s: %w", dcan, err)
+		return nil, fmt.Errorf("could not build path to deployment %s: %w", dcan, err)
 	}
-	return nil
+
+	err = tfw.Teardown(deploymentDir)
+	if err != nil {
+		return nil, fmt.Errorf("could not teardown deployment %s: %w", dcan, err)
+	}
+
+	err = os.RemoveAll(deploymentDir)
+	if err != nil {
+		return nil, fmt.Errorf("could not delete deployment files folder: %w", err)
+	}
+
+	err = s.repo.DeleteDeployment(ctx, dcan)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete deployment %s: %w", dcan, err)
+	}
+
+	deployments := s.ReadAllDeployments(ctx)
+	return deployments, nil
 }
 
 // UpdateInstance updates an instance that belongs to a given deployment canonical

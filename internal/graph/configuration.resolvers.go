@@ -18,8 +18,52 @@ func (r *mutationResolver) AddUseCaseConfiguration(ctx context.Context, input Ne
 	return cfg, nil
 }
 
-func (r *mutationResolver) AddServiceConfiguration(ctx context.Context, input NewServiceConfiguration) (*Configuration, error) {
-	configuration, err := r.s.AddConfigurationService(ctx, input.Usecase, input.toDTO())
+func (r *mutationResolver) UpdateUseCaseConfiguration(ctx context.Context, uc string, input UpdateUseCaseConfiguration) (*Configuration, error) {
+	configuration, err := r.s.UpdateConfigurationUsecase(ctx, uc, input.toModel(uc))
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &Configuration{}
+	cfg.fromModel(*configuration)
+	return cfg, nil
+}
+
+func (r *mutationResolver) DeleteUseCaseConfiguration(ctx context.Context, uc string) (*Configuration, error) {
+	configuration, err := r.s.DeleteConfigurationUseCase(ctx, uc)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &Configuration{}
+	cfg.fromModel(*configuration)
+	return cfg, nil
+}
+
+func (r *mutationResolver) AddServiceConfiguration(ctx context.Context, uc string, input NewServiceConfiguration) (*Configuration, error) {
+	configuration, err := r.s.AddConfigurationService(ctx, uc, input.toDTO())
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &Configuration{}
+	cfg.fromModel(*configuration)
+	return cfg, nil
+}
+
+func (r *mutationResolver) UpdateServiceConfiguration(ctx context.Context, uc string, service ServiceType, input UpdateServiceConfiguration) (*Configuration, error) {
+	configuration, err := r.s.UpdateConfigurationService(ctx, uc, service.String(), input.toModel(service.String()))
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &Configuration{}
+	cfg.fromModel(*configuration)
+	return cfg, nil
+}
+
+func (r *mutationResolver) DeleteServiceConfiguration(ctx context.Context, uc string, service *ServiceType) (*Configuration, error) {
+	configuration, err := r.s.DeleteConfigurationService(ctx, uc, service.String())
 	if err != nil {
 		return nil, err
 	}

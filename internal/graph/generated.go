@@ -66,9 +66,14 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		AddServiceConfiguration func(childComplexity int, input NewServiceConfiguration) int
-		AddUseCaseConfiguration func(childComplexity int, input NewUseCaseConfiguration) int
-		CreateDeployments       func(childComplexity int, input NewDeployments) int
+		AddServiceConfiguration    func(childComplexity int, uc string, input NewServiceConfiguration) int
+		AddUseCaseConfiguration    func(childComplexity int, input NewUseCaseConfiguration) int
+		CreateDeployments          func(childComplexity int, input NewDeployments) int
+		DeleteDeployment           func(childComplexity int, canonical string) int
+		DeleteServiceConfiguration func(childComplexity int, uc string, service *ServiceType) int
+		DeleteUseCaseConfiguration func(childComplexity int, uc string) int
+		UpdateServiceConfiguration func(childComplexity int, uc string, service ServiceType, input UpdateServiceConfiguration) int
+		UpdateUseCaseConfiguration func(childComplexity int, uc string, input UpdateUseCaseConfiguration) int
 	}
 
 	PluginConfiguration struct {
@@ -98,8 +103,13 @@ type ComplexityRoot struct {
 
 type MutationResolver interface {
 	AddUseCaseConfiguration(ctx context.Context, input NewUseCaseConfiguration) (*Configuration, error)
-	AddServiceConfiguration(ctx context.Context, input NewServiceConfiguration) (*Configuration, error)
+	UpdateUseCaseConfiguration(ctx context.Context, uc string, input UpdateUseCaseConfiguration) (*Configuration, error)
+	DeleteUseCaseConfiguration(ctx context.Context, uc string) (*Configuration, error)
+	AddServiceConfiguration(ctx context.Context, uc string, input NewServiceConfiguration) (*Configuration, error)
+	UpdateServiceConfiguration(ctx context.Context, uc string, service ServiceType, input UpdateServiceConfiguration) (*Configuration, error)
+	DeleteServiceConfiguration(ctx context.Context, uc string, service *ServiceType) (*Configuration, error)
 	CreateDeployments(ctx context.Context, input NewDeployments) ([]Deployment, error)
+	DeleteDeployment(ctx context.Context, canonical string) ([]Deployment, error)
 }
 type QueryResolver interface {
 	Configuration(ctx context.Context) (*Configuration, error)
@@ -211,7 +221,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.AddServiceConfiguration(childComplexity, args["input"].(NewServiceConfiguration)), true
+		return e.complexity.Mutation.AddServiceConfiguration(childComplexity, args["uc"].(string), args["input"].(NewServiceConfiguration)), true
 
 	case "Mutation.addUseCaseConfiguration":
 		if e.complexity.Mutation.AddUseCaseConfiguration == nil {
@@ -236,6 +246,66 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.CreateDeployments(childComplexity, args["input"].(NewDeployments)), true
+
+	case "Mutation.deleteDeployment":
+		if e.complexity.Mutation.DeleteDeployment == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteDeployment_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteDeployment(childComplexity, args["canonical"].(string)), true
+
+	case "Mutation.deleteServiceConfiguration":
+		if e.complexity.Mutation.DeleteServiceConfiguration == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteServiceConfiguration_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteServiceConfiguration(childComplexity, args["uc"].(string), args["service"].(*ServiceType)), true
+
+	case "Mutation.deleteUseCaseConfiguration":
+		if e.complexity.Mutation.DeleteUseCaseConfiguration == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteUseCaseConfiguration_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteUseCaseConfiguration(childComplexity, args["uc"].(string)), true
+
+	case "Mutation.updateServiceConfiguration":
+		if e.complexity.Mutation.UpdateServiceConfiguration == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateServiceConfiguration_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateServiceConfiguration(childComplexity, args["uc"].(string), args["service"].(ServiceType), args["input"].(UpdateServiceConfiguration)), true
+
+	case "Mutation.updateUseCaseConfiguration":
+		if e.complexity.Mutation.UpdateUseCaseConfiguration == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateUseCaseConfiguration_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateUseCaseConfiguration(childComplexity, args["uc"].(string), args["input"].(UpdateUseCaseConfiguration)), true
 
 	case "PluginConfiguration.name":
 		if e.complexity.PluginConfiguration.Name == nil {
@@ -425,9 +495,17 @@ input NewUseCaseConfiguration {
   services: [NewServiceConfiguration!]!
 }
 
+input UpdateUseCaseConfiguration {
+  services: [NewServiceConfiguration!]!
+}
+
 input NewServiceConfiguration {
-  usecase: String!
   type: ServiceType!
+  version: String!
+  plugins: [NewPluginConfiguration!]!
+}
+
+input UpdateServiceConfiguration {
   version: String!
   plugins: [NewPluginConfiguration!]!
 }
@@ -445,7 +523,12 @@ extend type Query {
 
 extend type Mutation {
   addUseCaseConfiguration(input: NewUseCaseConfiguration!): Configuration!
-  addServiceConfiguration(input: NewServiceConfiguration!): Configuration!
+  updateUseCaseConfiguration(uc: String!, input: UpdateUseCaseConfiguration!): Configuration!
+  deleteUseCaseConfiguration(uc: String!): Configuration!
+  
+  addServiceConfiguration(uc: String!, input: NewServiceConfiguration!): Configuration!
+  updateServiceConfiguration(uc: String!, service: ServiceType!, input: UpdateServiceConfiguration!): Configuration!
+  deleteServiceConfiguration(uc: String!, service: ServiceType): Configuration!
 }`, BuiltIn: false},
 	{Name: "internal/graph/schema/deployment.gql", Input: `type Deployment {
   canonical: String!
@@ -456,7 +539,7 @@ extend type Mutation {
 
 type Instance {
   url: String!
-  state: String!
+  state: DeploymentState!
   userCredential: Credential!
 }
 
@@ -477,7 +560,7 @@ input NewDeployment {
 }
 
 input NewService {
-  service: String!
+  service: ServiceType!
   count: Int
 }
 
@@ -488,15 +571,16 @@ extend type Query {
 
 extend type Mutation {
   createDeployments(input: NewDeployments!): [Deployment!]!
+  deleteDeployment(canonical: String!): [Deployment!]!
 }`, BuiltIn: false},
 	{Name: "internal/graph/schema/schema.gql", Input: `enum ServiceType {
-  Sonarqube
+  sonarqube
 }
 
 enum DeploymentState {
-  Running
-  Pending
-  Stopped
+  running
+  pending
+  stopped
 }`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -508,15 +592,24 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 func (ec *executionContext) field_Mutation_addServiceConfiguration_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 NewServiceConfiguration
-	if tmp, ok := rawArgs["input"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNNewServiceConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewServiceConfiguration(ctx, tmp)
+	var arg0 string
+	if tmp, ok := rawArgs["uc"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("uc"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["input"] = arg0
+	args["uc"] = arg0
+	var arg1 NewServiceConfiguration
+	if tmp, ok := rawArgs["input"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+		arg1, err = ec.unmarshalNNewServiceConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewServiceConfiguration(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg1
 	return args, nil
 }
 
@@ -547,6 +640,117 @@ func (ec *executionContext) field_Mutation_createDeployments_args(ctx context.Co
 		}
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteDeployment_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["canonical"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("canonical"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["canonical"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteServiceConfiguration_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["uc"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("uc"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["uc"] = arg0
+	var arg1 *ServiceType
+	if tmp, ok := rawArgs["service"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("service"))
+		arg1, err = ec.unmarshalOServiceType2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceType(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["service"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteUseCaseConfiguration_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["uc"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("uc"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["uc"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateServiceConfiguration_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["uc"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("uc"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["uc"] = arg0
+	var arg1 ServiceType
+	if tmp, ok := rawArgs["service"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("service"))
+		arg1, err = ec.unmarshalNServiceType2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceType(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["service"] = arg1
+	var arg2 UpdateServiceConfiguration
+	if tmp, ok := rawArgs["input"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+		arg2, err = ec.unmarshalNUpdateServiceConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐUpdateServiceConfiguration(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateUseCaseConfiguration_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["uc"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("uc"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["uc"] = arg0
+	var arg1 UpdateUseCaseConfiguration
+	if tmp, ok := rawArgs["input"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+		arg1, err = ec.unmarshalNUpdateUseCaseConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐUpdateUseCaseConfiguration(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg1
 	return args, nil
 }
 
@@ -1002,9 +1206,9 @@ func (ec *executionContext) _Instance_state(ctx context.Context, field graphql.C
 		}
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(DeploymentState)
 	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
+	return ec.marshalNDeploymentState2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐDeploymentState(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Instance_userCredential(ctx context.Context, field graphql.CollectedField, obj *Instance) (ret graphql.Marshaler) {
@@ -1084,6 +1288,90 @@ func (ec *executionContext) _Mutation_addUseCaseConfiguration(ctx context.Contex
 	return ec.marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐConfiguration(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Mutation_updateUseCaseConfiguration(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_updateUseCaseConfiguration_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpdateUseCaseConfiguration(rctx, args["uc"].(string), args["input"].(UpdateUseCaseConfiguration))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*Configuration)
+	fc.Result = res
+	return ec.marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐConfiguration(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_deleteUseCaseConfiguration(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_deleteUseCaseConfiguration_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteUseCaseConfiguration(rctx, args["uc"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*Configuration)
+	fc.Result = res
+	return ec.marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐConfiguration(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Mutation_addServiceConfiguration(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1109,7 +1397,91 @@ func (ec *executionContext) _Mutation_addServiceConfiguration(ctx context.Contex
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().AddServiceConfiguration(rctx, args["input"].(NewServiceConfiguration))
+		return ec.resolvers.Mutation().AddServiceConfiguration(rctx, args["uc"].(string), args["input"].(NewServiceConfiguration))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*Configuration)
+	fc.Result = res
+	return ec.marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐConfiguration(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_updateServiceConfiguration(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_updateServiceConfiguration_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpdateServiceConfiguration(rctx, args["uc"].(string), args["service"].(ServiceType), args["input"].(UpdateServiceConfiguration))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*Configuration)
+	fc.Result = res
+	return ec.marshalNConfiguration2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐConfiguration(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_deleteServiceConfiguration(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_deleteServiceConfiguration_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteServiceConfiguration(rctx, args["uc"].(string), args["service"].(*ServiceType))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1152,6 +1524,48 @@ func (ec *executionContext) _Mutation_createDeployments(ctx context.Context, fie
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return ec.resolvers.Mutation().CreateDeployments(rctx, args["input"].(NewDeployments))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]Deployment)
+	fc.Result = res
+	return ec.marshalNDeployment2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐDeploymentᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_deleteDeployment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_deleteDeployment_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteDeployment(rctx, args["canonical"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2972,7 +3386,7 @@ func (ec *executionContext) unmarshalInputNewService(ctx context.Context, obj in
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("service"))
-			it.Service, err = ec.unmarshalNString2string(ctx, v)
+			it.Service, err = ec.unmarshalNServiceType2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceType(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -2999,14 +3413,6 @@ func (ec *executionContext) unmarshalInputNewServiceConfiguration(ctx context.Co
 
 	for k, v := range asMap {
 		switch k {
-		case "usecase":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("usecase"))
-			it.Usecase, err = ec.unmarshalNString2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
 		case "type":
 			var err error
 
@@ -3054,6 +3460,60 @@ func (ec *executionContext) unmarshalInputNewUseCaseConfiguration(ctx context.Co
 			if err != nil {
 				return it, err
 			}
+		case "services":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("services"))
+			it.Services, err = ec.unmarshalNNewServiceConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewServiceConfigurationᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputUpdateServiceConfiguration(ctx context.Context, obj interface{}) (UpdateServiceConfiguration, error) {
+	var it UpdateServiceConfiguration
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	for k, v := range asMap {
+		switch k {
+		case "version":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("version"))
+			it.Version, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "plugins":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("plugins"))
+			it.Plugins, err = ec.unmarshalNNewPluginConfiguration2ᚕgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐNewPluginConfigurationᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputUpdateUseCaseConfiguration(ctx context.Context, obj interface{}) (UpdateUseCaseConfiguration, error) {
+	var it UpdateUseCaseConfiguration
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	for k, v := range asMap {
+		switch k {
 		case "services":
 			var err error
 
@@ -3299,6 +3759,26 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
+		case "updateUseCaseConfiguration":
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateUseCaseConfiguration(ctx, field)
+			}
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, innerFunc)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "deleteUseCaseConfiguration":
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteUseCaseConfiguration(ctx, field)
+			}
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, innerFunc)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		case "addServiceConfiguration":
 			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_addServiceConfiguration(ctx, field)
@@ -3309,9 +3789,39 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
+		case "updateServiceConfiguration":
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateServiceConfiguration(ctx, field)
+			}
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, innerFunc)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "deleteServiceConfiguration":
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteServiceConfiguration(ctx, field)
+			}
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, innerFunc)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		case "createDeployments":
 			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createDeployments(ctx, field)
+			}
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, innerFunc)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "deleteDeployment":
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteDeployment(ctx, field)
 			}
 
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, innerFunc)
@@ -4142,6 +4652,16 @@ func (ec *executionContext) marshalNDeployment2ᚖgithubᚗcomᚋcsothenᚋlift�
 	return ec._Deployment(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNDeploymentState2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐDeploymentState(ctx context.Context, v interface{}) (DeploymentState, error) {
+	var res DeploymentState
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNDeploymentState2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐDeploymentState(ctx context.Context, sel ast.SelectionSet, v DeploymentState) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) marshalNInstance2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐInstance(ctx context.Context, sel ast.SelectionSet, v Instance) graphql.Marshaler {
 	return ec._Instance(ctx, sel, &v)
 }
@@ -4417,6 +4937,16 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNUpdateServiceConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐUpdateServiceConfiguration(ctx context.Context, v interface{}) (UpdateServiceConfiguration, error) {
+	res, err := ec.unmarshalInputUpdateServiceConfiguration(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateUseCaseConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐUpdateUseCaseConfiguration(ctx context.Context, v interface{}) (UpdateUseCaseConfiguration, error) {
+	res, err := ec.unmarshalInputUpdateUseCaseConfiguration(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNUseCaseConfiguration2githubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐUseCaseConfiguration(ctx context.Context, sel ast.SelectionSet, v UseCaseConfiguration) graphql.Marshaler {
@@ -4770,6 +5300,22 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	}
 	res := graphql.MarshalInt(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOServiceType2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceType(ctx context.Context, v interface{}) (*ServiceType, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(ServiceType)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOServiceType2ᚖgithubᚗcomᚋcsothenᚋliftᚋinternalᚋgraphᚐServiceType(ctx context.Context, sel ast.SelectionSet, v *ServiceType) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v interface{}) (*string, error) {
