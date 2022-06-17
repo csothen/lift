@@ -11,8 +11,6 @@ import (
 
 	"github.com/csothen/lift/internal/db"
 	"github.com/csothen/lift/internal/fetcher"
-	"github.com/csothen/lift/internal/fetcher/jenkins"
-	"github.com/csothen/lift/internal/fetcher/sonarqube"
 	"github.com/csothen/lift/internal/models"
 	"github.com/csothen/lift/internal/models/dtos"
 	"github.com/csothen/lift/internal/terraform"
@@ -61,12 +59,6 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 		return nil, nil, errors
 	}
 
-	// Load the fetchers into a map that can be easily accessed
-	fetchers := map[string]fetcher.Fetcher{
-		models.SonarqubeService.String(): sonarqube.NewFetcher(),
-		models.JenkinsService.String():   jenkins.NewFetcher(),
-	}
-
 	tfw := terraform.NewWorker(s.config.TerraformExecPath)
 
 	// For each individual deployment persist its information
@@ -104,7 +96,7 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 
 			deployments = append(deployments, cd)
 
-			intpl, err := s.loadInterpolator(nd.UseCase, ns.Service, canonical, ns.Count, fetchers, configurations)
+			intpl, err := s.loadInterpolator(nd.UseCase, ns.Service, canonical, ns.Count, configurations)
 			if err != nil {
 				errors = append(errors, err)
 				continue
@@ -282,8 +274,8 @@ func (s *Service) persistDeployment(ctx context.Context, canonical string, st mo
 	return deployment, nil
 }
 
-func (s *Service) loadInterpolator(uc, service, canonical string, count int, fetchers map[string]fetcher.Fetcher, configurations map[string]*models.ServiceConfiguration) (*utils.Interpolator, error) {
-	f, ok := fetchers[service]
+func (s *Service) loadInterpolator(uc, service, canonical string, count int, configurations map[string]*models.ServiceConfiguration) (*utils.Interpolator, error) {
+	f, ok := fetcher.Fetchers[service]
 	if !ok {
 		return nil, fmt.Errorf("no fetcher found for service %s", service)
 	}

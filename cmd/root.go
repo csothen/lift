@@ -5,8 +5,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// RootCmd is the root command of the application where
-// all the other subcomnads belong to
+// RootCmd is the root command of the application to
+// which all the other subcommands belong to
 var RootCmd = &cobra.Command{
 	Use:   "lift",
 	Short: "Lift's CLI",

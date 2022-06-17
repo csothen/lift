@@ -3,13 +3,15 @@ package db
 import (
 	"context"
 	"fmt"
+
+	"gorm.io/gorm"
 )
 
 func (q *querier) GetAllDeployments(ctx context.Context) ([]*Deployment, error) {
 	db := q.db.WithContext(ctx)
 
 	var deployments []*Deployment
-	res := db.Preload("Instances.AdminCredential").Preload("Instances.UserCredential").Find(&deployments)
+	res := preloadDeployment(db).Find(&deployments)
 	if res.Error != nil {
 		return nil, fmt.Errorf("deployments not found: %w", res.Error)
 	}
@@ -21,7 +23,7 @@ func (q *querier) GetDeploymentByCanonical(ctx context.Context, can string) (*De
 	db := q.db.WithContext(ctx)
 
 	var deployment Deployment
-	res := db.Preload("Instances").First(&deployment, "canonical = ?", can)
+	res := preloadDeployment(db).First(&deployment, "canonical = ?", can)
 	if res.Error != nil {
 		return nil, fmt.Errorf("deployment not found: %w", res.Error)
 	}
@@ -37,7 +39,7 @@ func (q *querier) CreateDeployment(ctx context.Context, newD Deployment) (*Deplo
 	}
 
 	var deployment Deployment
-	fres := db.Preload("Instances").First(&deployment, "canonical = ?", newD.Canonical)
+	fres := preloadDeployment(db).First(&deployment, "canonical = ?", newD.Canonical)
 	if fres.Error != nil {
 		return nil, fmt.Errorf("failed to create deployment: %w", fres.Error)
 	}
@@ -48,7 +50,7 @@ func (q *querier) UpdateDeployment(ctx context.Context, updatedD Deployment) err
 	db := q.db.WithContext(ctx)
 
 	var foundD Deployment
-	fres := db.First(&foundD, "canonical = ?", updatedD.Canonical)
+	fres := preloadDeployment(db).First(&foundD, "canonical = ?", updatedD.Canonical)
 	if fres.Error != nil {
 		return fmt.Errorf("could not update deployment: %w", fres.Error)
 	}
@@ -68,4 +70,8 @@ func (q *querier) DeleteDeployment(ctx context.Context, can string) error {
 		return fmt.Errorf("failed to delete deployment: %w", res.Error)
 	}
 	return nil
+}
+
+func preloadDeployment(db *gorm.DB) *gorm.DB {
+	return db.Preload("Instances.AdminCredential").Preload("Instances.UserCredential")
 }

@@ -1,7 +1,17 @@
 package fetcher
 
 import (
+	"github.com/csothen/lift/internal/fetcher/jenkins"
+	"github.com/csothen/lift/internal/fetcher/sonarqube"
 	"github.com/csothen/lift/internal/fetcher/types"
+	"github.com/csothen/lift/internal/models"
+)
+
+var (
+	Fetchers map[string]Fetcher = map[string]Fetcher{
+		models.SonarqubeService.String(): sonarqube.NewFetcher(),
+		models.JenkinsService.String():   jenkins.NewFetcher(),
+	}
 )
 
 type Fetcher interface {
