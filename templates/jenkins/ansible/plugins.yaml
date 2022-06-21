@@ -1,0 +1,45 @@
+---
+# Update Jenkins so that plugin updates don't fail.
+- name: Create Jenkins updates directory.
+  file:
+    path: "{{ jenkins_home }}/updates"
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: 0755
+
+- name: Download current plugin updates from Jenkins update site.
+  get_url:
+    url: "https://updates.jenkins.io/update-center.json"
+    dest: "{{ jenkins_home }}/updates/default.json"
+    owner: jenkins
+    group: jenkins
+    mode: 0440
+  changed_when: false
+  register: get_result
+  until: get_result is success
+  retries: 3
+  delay: 2
+
+- name: Remove first and last line from json file.
+  replace:  # noqa 208
+    path: "{{ jenkins_home }}/updates/default.json"
+    regexp: "1d;$d"
+
+- name: Install Jenkins plugins using password.
+  jenkins_plugin:
+    name: "{{ item }}"
+    jenkins_home: "{{ jenkins_home }}"
+    state: "latest"
+    timeout: "30"
+    updates_url: "https://updates.jenkins.io"
+    url: "http://localhost:8080"
+    with_dependencies: "true"
+  with_items: "{{ groups['jenkins_plugins'] }}"
+  retries: 3
+  delay: 2
+
+- name: Restart Jenkins
+  service:
+    name: jenkins
+    state: restarted

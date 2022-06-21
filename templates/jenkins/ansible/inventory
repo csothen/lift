@@ -6,3 +6,16 @@ jenkins_version=($ version $)
 jenkins_home=/var/lib/jenkins
 jenkins_init_file=/etc/default/jenkins
 jenkins_java_options=-Djenkins.install.runSetupWizard=false
+
+[jenkins_plugins]
+maven-plugin
+sonar
+git
+bitbucket
+bitbucket-build-status-notifier
+build-timeout
+credentials
+branch-api
+ldap
+junit
+credentials-binding
