@@ -16,6 +16,7 @@ COPY ./.env /lift/
 COPY ./templates/ /lift/templates/
 COPY ./static/keys/lift.pub /lift/.ssh/id_rsa.pub
 COPY ./static/keys/lift /lift/.ssh/id_rsa
+COPY ./static/ /lift/static/
 
 WORKDIR /lift
 

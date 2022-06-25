@@ -35,15 +35,23 @@ func (uuc *UpdateUseCaseConfiguration) toModel(name string) *models.UseCaseConfi
 func (ns *NewServiceConfiguration) toDTO() *dtos.NewServiceConfiguration {
 	dto := &dtos.NewServiceConfiguration{
 		Type:    ns.Type.String(),
-		Version: ns.Version,
 		Plugins: make([]dtos.PluginInformation, len(ns.Plugins)),
 	}
 
+	if ns.Version != nil {
+		dto.Version = *ns.Version
+	}
+
 	for i, pi := range ns.Plugins {
-		dto.Plugins[i] = dtos.PluginInformation{
-			Name:    pi.Name,
-			Version: pi.Version,
+		pidto := dtos.PluginInformation{
+			Name: pi.Name,
 		}
+
+		if pi.Version != nil {
+			pidto.Version = *pi.Version
+		}
+
+		dto.Plugins[i] = pidto
 	}
 	return dto
 }
@@ -52,15 +60,23 @@ func (ns *NewServiceConfiguration) toModel() *models.ServiceConfiguration {
 	st, _ := models.TypeString(ns.Type.String())
 	sm := &models.ServiceConfiguration{
 		Type:    st,
-		Version: ns.Version,
 		Plugins: make([]models.PluginInformation, len(ns.Plugins)),
 	}
 
+	if ns.Version != nil {
+		sm.Version = *ns.Version
+	}
+
 	for i, np := range ns.Plugins {
-		sm.Plugins[i] = models.PluginInformation{
-			Name:    np.Name,
-			Version: np.Version,
+		npm := models.PluginInformation{
+			Name: np.Name,
 		}
+
+		if np.Version != nil {
+			npm.Version = *np.Version
+		}
+
+		sm.Plugins[i] = npm
 	}
 	return sm
 }
@@ -69,15 +85,23 @@ func (us *UpdateServiceConfiguration) toModel(service string) *models.ServiceCon
 	st, _ := models.TypeString(service)
 	sm := &models.ServiceConfiguration{
 		Type:    st,
-		Version: us.Version,
 		Plugins: make([]models.PluginInformation, len(us.Plugins)),
 	}
 
+	if us.Version != nil {
+		sm.Version = *us.Version
+	}
+
 	for i, np := range us.Plugins {
-		sm.Plugins[i] = models.PluginInformation{
-			Name:    np.Name,
-			Version: np.Version,
+		npm := models.PluginInformation{
+			Name: np.Name,
 		}
+
+		if np.Version != nil {
+			npm.Version = *np.Version
+		}
+
+		sm.Plugins[i] = npm
 	}
 	return sm
 }
@@ -131,13 +155,21 @@ func (uc *UseCaseConfiguration) fromModel(ucm models.UseCaseConfiguration) {
 
 func (s *ServiceConfiguration) fromModel(sm models.ServiceConfiguration) {
 	s.Type = ServiceType(sm.Type.String())
-	s.Version = sm.Version
 	s.Plugins = make([]PluginConfiguration, len(sm.Plugins))
+	if sm.Version != "" {
+		s.Version = &sm.Version
+	}
+
 	for i, pm := range sm.Plugins {
-		s.Plugins[i] = PluginConfiguration{
-			Name:    pm.Name,
-			Version: pm.Version,
+		pc := PluginConfiguration{
+			Name: pm.Name,
 		}
+
+		if pm.Version != "" {
+			pc.Version = &pm.Version
+		}
+
+		s.Plugins[i] = pc
 	}
 }
 
@@ -166,5 +198,4 @@ func (i *Instance) fromModel(im models.Instance) {
 func (c *Credential) fromModel(cm models.Credential) {
 	c.Username = cm.Username
 	c.Password = cm.Password
-	c.AccessToken = cm.AccessToken
 }

@@ -116,9 +116,9 @@ func (w *Worker) handleSuccessfulConnection(i models.Instance, d models.Deployme
 		Password: adminPassword,
 	}
 
-	userCreds, err := w.createUserCredentials(i, d)
+	userCreds, err := w.setup(i, d)
 	if err != nil {
-		return fmt.Errorf("could not create user credentials: %w", err)
+		return fmt.Errorf("could not set up instance: %w", err)
 	}
 
 	// update the instance to hold credentials and new state
@@ -144,7 +144,7 @@ func (w *Worker) handleSuccessfulConnection(i models.Instance, d models.Deployme
 	return nil
 }
 
-func (w *Worker) createUserCredentials(i models.Instance, d models.Deployment) (*models.Credential, error) {
+func (w *Worker) setup(i models.Instance, d models.Deployment) (*models.Credential, error) {
 	host := i.URL
 	username, password := "user", utils.GeneratePassword(int64(rand.Int()))
 	adminUsername, adminPassword := i.AdminCredential.Username, i.AdminCredential.Password
@@ -156,14 +156,17 @@ func (w *Worker) createUserCredentials(i models.Instance, d models.Deployment) (
 
 	switch d.Type {
 	case models.SonarqubeService:
-		err := sonarqube.CreateUser(host, username, password, adminUsername, adminPassword)
+		err := sonarqube.Setup(host, username, password, adminUsername, adminPassword)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create sonarqube user: %w", err)
+			return nil, fmt.Errorf("failed to set up sonarqube: %w", err)
 		}
 		return &cred, nil
 	case models.JenkinsService:
-		// TODO: Configure Jenkins so that it actually requires credentials
-		// as it is it does not
+		err := jenkins.Setup(host)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set up jenkins: %w", err)
+		}
+		// no credentials are set up in the instance
 		return &models.Credential{}, nil
 	default:
 		return nil, fmt.Errorf("service type %s not supported", d.Type.String())

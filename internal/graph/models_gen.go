@@ -13,9 +13,8 @@ type Configuration struct {
 }
 
 type Credential struct {
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	AccessToken string `json:"accessToken"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type Deployment struct {
@@ -42,8 +41,8 @@ type NewDeployments struct {
 }
 
 type NewPluginConfiguration struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	Name    string  `json:"name"`
+	Version *string `json:"version"`
 }
 
 type NewService struct {
@@ -53,7 +52,7 @@ type NewService struct {
 
 type NewServiceConfiguration struct {
 	Type    ServiceType              `json:"type"`
-	Version string                   `json:"version"`
+	Version *string                  `json:"version"`
 	Plugins []NewPluginConfiguration `json:"plugins"`
 }
 
@@ -63,18 +62,18 @@ type NewUseCaseConfiguration struct {
 }
 
 type PluginConfiguration struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	Name    string  `json:"name"`
+	Version *string `json:"version"`
 }
 
 type ServiceConfiguration struct {
 	Type    ServiceType           `json:"type"`
-	Version string                `json:"version"`
+	Version *string               `json:"version"`
 	Plugins []PluginConfiguration `json:"plugins"`
 }
 
 type UpdateServiceConfiguration struct {
-	Version string                   `json:"version"`
+	Version *string                  `json:"version"`
 	Plugins []NewPluginConfiguration `json:"plugins"`
 }
 

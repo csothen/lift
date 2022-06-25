@@ -15,7 +15,8 @@
 # vendor/
 
 # Static files
-static/*
+static/keys
+static/fetched
 
 # Environment files
 .env

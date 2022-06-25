@@ -132,13 +132,21 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 				filepaths, ok := templates[ns.Service]
 				if !ok {
 					errors = append(errors, fmt.Errorf("no template founds for the service %s", ns.Service))
+					os.RemoveAll(pathToDir)
 					return
 				}
 
 				err = s.interpolateAndWriteFiles(filepaths, canonical, ns.Service, pathToDir, *intpl)
 				if err != nil {
 					errors = append(errors, err)
+					os.RemoveAll(pathToDir)
 					return
+				}
+
+				cleanup := func() {
+					log.Printf("cleaning up failed deployment %s\n", cd.Canonical)
+					os.RemoveAll(pathToDir)
+					s.DeleteDeployment(dctx, cd.Canonical)
 				}
 
 				// once all files are interpolated and created we do the
@@ -146,6 +154,7 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 				err = tfw.Deploy(pathToDir)
 				if err != nil {
 					errors = append(errors, fmt.Errorf("error executing deployment %s: %w", cd.Canonical, err))
+					cleanup()
 					return
 				}
 
@@ -154,6 +163,7 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 				deploymentURLs, err := tfw.GetIPs(pathToDir)
 				if err != nil {
 					errors = append(errors, fmt.Errorf("error retrieving the public IPs of the deployment %s: %w", cd.Canonical, err))
+					cleanup()
 					return
 				}
 
@@ -172,6 +182,7 @@ func (s *Service) CreateDeployment(ctx context.Context, nds *dtos.NewDeployments
 				err = s.repo.BatchCreateInstances(dctx, instances)
 				if err != nil {
 					errors = append(errors, fmt.Errorf("error updating deployment %s's URL: %w", cd.Canonical, err))
+					cleanup()
 					return
 				}
 			}(ns)

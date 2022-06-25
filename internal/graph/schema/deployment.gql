@@ -1,20 +1,19 @@
 type Deployment {
   canonical: String!
   type: String!
-  instances: [Instance!]!
+  instances: [Instance!]
   callbackURL: String!
 }
 
 type Instance {
   url: String!
   state: DeploymentState!
-  userCredential: Credential!
+  userCredential: Credential
 }
 
 type Credential {
   username: String!
   password: String!
-  accessToken: String!
 }
 
 input NewDeployments {

@@ -53,7 +53,7 @@ func Status(host string) (StatusCode, error) {
 	return check.Status, nil
 }
 
-func CreateUser(host, username, password, adminUsername, adminPassword string) error {
+func Setup(host, username, password, adminUsername, adminPassword string) error {
 	createUserURL := fmt.Sprintf("http://%s:9000/api/users/create", host)
 
 	// Create request parameters

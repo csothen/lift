@@ -18,7 +18,7 @@ func BuildDeploymentFolderPath(canonical string) (string, error) {
 }
 
 func BuildStaticFolderPath() (string, error) {
-	return pathFromProjectRoot("static", "data")
+	return pathFromProjectRoot("static")
 }
 
 func BuildTemplatesFolderPath() (string, error) {

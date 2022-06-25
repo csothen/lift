@@ -9,13 +9,13 @@ type UseCaseConfiguration {
 
 type ServiceConfiguration {
   type: ServiceType!
-  version: String!
+  version: String
   plugins: [PluginConfiguration!]!
 }
 
 type PluginConfiguration {
   name: String!
-  version: String!
+  version: String
 }
 
 input NewUseCaseConfiguration {
@@ -29,18 +29,18 @@ input UpdateUseCaseConfiguration {
 
 input NewServiceConfiguration {
   type: ServiceType!
-  version: String!
+  version: String
   plugins: [NewPluginConfiguration!]!
 }
 
 input UpdateServiceConfiguration {
-  version: String!
+  version: String
   plugins: [NewPluginConfiguration!]!
 }
 
 input NewPluginConfiguration {
   name: String!
-  version: String!
+  version: String
 }
 
 extend type Query {

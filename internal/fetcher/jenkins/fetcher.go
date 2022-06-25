@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	StaticContentFilename string = "jenkins.json"
+	StaticContentFilename string = "fetched/jenkins.json"
 )
 
 type fetcher struct {
@@ -56,7 +56,7 @@ func (f *fetcher) ListPlugins() []*types.Plugin {
 }
 
 func (f *fetcher) GetApplicationVersion(version string) (*types.AppVersion, error) {
-	// TODO: Currently a constant could be dynamically fetched in the future
+	// TODO: Currently a constant but could be dynamically fetched in the future
 	return &types.AppVersion{
 		Version: "2.332",
 	}, nil

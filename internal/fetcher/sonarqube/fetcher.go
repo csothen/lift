@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	StaticContentFilename string = "sonarqube.json"
+	StaticContentFilename string = "fetched/sonarqube.json"
 )
 
 type fetcher struct {
