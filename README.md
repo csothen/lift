@@ -5,6 +5,7 @@ Lift is a service that lifts infrastructure on demand, more specifically code an
 
 Currently lift supports the following analysis tools:
 - Sonarqube
+- Jenkins
 
 ## Getting started
 
